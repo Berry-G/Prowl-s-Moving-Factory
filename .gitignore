@@ -10,6 +10,9 @@
 .vs/
 .vscode/
 .idea/
+.docs/
+.serena/
+.history/
 *.csproj
 *.unityproj
 *.sln

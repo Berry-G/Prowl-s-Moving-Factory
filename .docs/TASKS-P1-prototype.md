@@ -19,7 +19,7 @@
 
 | 단계 | 태스크 | 상태 |
 |---|---|---|
-| 0. 환경 | P-00 ~ P-02 | ☐ |
+| 0. 환경 | P-00 ~ P-02, **P-02B(MCP)** | ☐ |
 | 1. 격자와 맵 | P-03 ~ P-04 | ☐ |
 | 2. 경로 | P-05 ~ P-07 | ☐ |
 | 3. 판의 뼈대 | P-08 ~ P-09 | ☐ |
@@ -153,9 +153,13 @@ Background, Ground, Path, Deploy, Actors, Projectile, FX
 ### 6) Package Manager — 미사용 패키지 제거
 **Package Manager UI 에서 제거하라. `Packages/manifest.json` 을 손으로 편집하지 마라.**
 
+> ### ⚠️ 정정 (2026-08-26)
+> 이 목록에는 원래 `com.unity.ai.assistant` 가 있었으나 **뺐습니다.**
+> 그 패키지가 **Unity 공식 MCP 서버**를 담고 있어서, 지우면 Claude가 에디터에 붙을 수 없습니다.
+> 이미 지웠다면 **P-02B** 에서 다시 넣습니다.
+
 제거 대상:
 ```
-com.unity.ai.assistant
 com.unity.ai.inference
 com.unity.multiplayer.center
 com.unity.visualscripting
@@ -173,7 +177,7 @@ com.unity.modules.adaptiveperformance
 com.unity.modules.unityanalytics
 ```
 
-**유지 대상 (지우지 마라):** `com.unity.2d.*` 전부, `com.unity.inputsystem`, `com.unity.ugui`, `com.unity.test-framework`, `com.unity.render-pipelines.universal`, `com.unity.ide.*`, `com.unity.modules.physics2d`, `com.unity.modules.physicscore2d`
+**유지 대상 (지우지 마라):** `com.unity.ai.assistant`(**공식 MCP 서버**), `com.unity.2d.*` 전부, `com.unity.inputsystem`, `com.unity.ugui`, `com.unity.test-framework`, `com.unity.render-pipelines.universal`, `com.unity.ide.*`, `com.unity.modules.physics2d`, `com.unity.modules.physicscore2d`
 
 **DoD:**
 - 위 6개 항목이 전부 적용되어 있다
@@ -231,6 +235,87 @@ Assets/_Project/
 **🚫 임의 판단 금지**
 - 어셈블리를 더 잘게 쪼개지 마라. 프로토타입에는 3개면 충분하다.
 - `Assets/` 최상위에 새 폴더를 만들지 마라.
+
+---
+
+## `[ ]` P-02B. Unity MCP 연결 — Claude가 에디터를 직접 보게 하기
+
+**목표:** Claude가 **컴파일 에러와 콘솔 로그를 스스로 읽게** 만든다.
+이것이 없으면 Claude는 코드를 쓰고도 그게 컴파일되는지 알 수 없다. `CLAUDE.md` §5 의
+"컴파일 검증이 불가능하면 그 사실을 명시하라"는 규칙이 바로 이 상태를 전제한 것이다.
+
+**선행:** P-02
+**성격:** 선택이지만 **강력 권장.** P-03 부터 코드가 시작되므로 그 전에 붙이는 게 이득이 가장 크다.
+
+### 왜 이걸 먼저 하는가
+
+| MCP 없이 | MCP 연결 후 |
+|---|---|
+| 코드를 쓰고 "에디터에서 확인해 주세요" 로 끝남 | Claude가 직접 컴파일 결과를 확인 |
+| 에러가 나면 사용자가 복사해서 붙여넣어야 함 | Claude가 콘솔에서 바로 읽음 |
+| 씬/프리팹 연결을 사용자가 손으로 | Claude가 일부 자동화 가능 |
+| 왕복 1회 = 사용자 개입 1회 | 왕복이 Claude 안에서 닫힘 |
+
+### 선택지 두 가지
+
+**A. Unity 공식 MCP (권장, 먼저 시도)**
+
+- 패키지: `com.unity.ai.assistant` (Unity 6000.0+ 지원 → 6.5 OK)
+- 추가 런타임 **불필요** (Python·Node 안 씀)
+- 1st party 라 6.6/6.7 업그레이드에 같이 따라옴
+- 단점: 프리릴리스(`-pre`) 라 UI/동작이 바뀔 수 있음
+
+**B. MCP for Unity (CoplayDev) — A가 안 되면**
+
+- 커뮤니티 표준. 도구 수가 더 많음
+- Python 3.10+ 와 `uv` 필요 (이 PC에는 이미 있음)
+- Unity 2021.3 ~ 6.x 지원
+
+### 작업 — A안 (공식)
+
+1. **패키지 설치**
+   Window → Package Manager → `+` → *Add package by name...* → `com.unity.ai.assistant`
+   - 목록에 안 보이면 Package Manager 우상단 톱니 → **Enable Pre-release Packages** 체크
+2. **브리지 확인**
+   Edit → Project Settings → **AI → Unity MCP Server**
+   - **Unity Bridge** 가 **Running**(초록)인지 확인. 멈춰 있으면 **Start**
+3. **클라이언트 자동 구성**
+   같은 화면 **Integrations** 섹션 → **Claude Code** 선택 → 구성 적용
+4. **연결 승인**
+   Claude Code 를 이 프로젝트 폴더에서 실행 → Unity 의 **Pending Connections** 에 뜨면 **Accept**
+   - 한 번 승인하면 이후 자동 재연결
+5. **검증**
+   ```
+   claude mcp list        →  unity 계열 서버가 ✔ Connected
+   ```
+   Claude에게 "콘솔 에러 읽어줘" 를 시켜서 실제로 읽히는지 확인
+
+### 작업 — B안 (CoplayDev)
+
+1. Window → Package Manager → `+` → **Add package from git URL**
+   ```
+   https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main
+   ```
+2. 임포트되면 **설정 마법사**가 자동 실행 → Python/`uv` 초록 확인 → **Done**
+3. 감지된 클라이언트 목록에서 **Claude Code** 체크 → **Configure Selected**
+4. 상태 패널이 **Connected** 인지 확인
+
+**DoD:**
+- `claude mcp list` 에 Unity 서버가 **Connected** 로 뜬다
+- Claude가 Unity 콘솔의 컴파일 에러를 **직접 읽어서** 보고할 수 있다
+- 에디터를 껐다 켠 뒤에도 자동 재연결된다
+- MCP 설정 파일이 git 에 커밋되었는지 확인 (`.mcp.json` 이 생겼다면)
+
+**⚠️ 함정**
+- **에디터가 떠 있어야만 MCP가 동작한다.** Unity를 닫으면 도구 호출이 전부 실패한다. Claude가 "MCP가 안 붙는다"고 하면 **가장 먼저 에디터가 켜져 있는지 확인**하라.
+- Unity가 **컴파일 중이거나 Import 중이면** MCP 응답이 지연되거나 실패한다. 정상이다. 잠시 후 재시도.
+- 두 방식(A, B)을 **동시에 붙이지 마라.** 도구 이름이 겹쳐 Claude가 어느 쪽을 부를지 혼란스러워진다. 하나를 고르고 다른 하나는 제거하라.
+- 공식 패키지는 **AI Assistant 기능 전체**를 같이 들여온다. 에디터 안 채팅 UI는 쓰지 않아도 되지만, 패키지를 지우면 MCP도 같이 사라진다는 점만 기억하라.
+- Claude Code 는 MCP 설정 변경 후 **재시작해야** 새 서버를 인식한다.
+
+**🚫 임의 판단 금지**
+- MCP가 붙었다고 해서 **씬을 마음대로 편집하지 마라.** 태스크에 명시된 것만 한다.
+- MCP로 스크립트를 생성하지 마라. 파일 작성은 기존 도구로 하고, MCP는 **검증(컴파일·콘솔·플레이 상태)** 에 쓴다.
 
 ---
 ---
