@@ -1,0 +1,146 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace PMF.Pathing
+{
+    /// <summary>
+    /// 경로를 따라 걷는 동작만 담당하는 순수 클래스 (MonoBehaviour 가 아니다).
+    /// Escortee, Enemy, AllyUnit, 모체가 각자 하나씩 필드로 들고 쓴다.
+    /// transform 은 진실이 아니고 Position 의 결과를 반영만 한다.
+    /// </summary>
+    public sealed class PathFollower
+    {
+        private readonly List<PathNode> _route = new List<PathNode>();
+        private int _nextIndex;          // _route 중 다음 목표 노드의 인덱스
+        private Vector3 _position;
+        private float _totalLength;
+        private float _travelled;
+        private bool _finished;
+
+        public bool HasRoute => _route.Count > 0;
+        public bool IsFinished => !HasRoute || _finished;
+        public Vector3 Position => _position;
+        public PathNode CurrentNode => _route.Count > 0 ? _route[Mathf.Max(_nextIndex - 1, 0)] : null;
+        public PathNode NextNode => (!_finished && _nextIndex < _route.Count) ? _route[_nextIndex] : null;
+
+        /// <summary>전체 경로 길이. 0이면 나누기 방어용으로 1을 반환한다.</summary>
+        public float TotalLength => _totalLength > 0f ? _totalLength : 1f;
+        public float RemainingDistance => Mathf.Max(_totalLength - _travelled, 0f);
+        public float Progress01 => Mathf.Clamp01(_travelled / TotalLength);
+
+        /// <summary>아직 통과하지 않은 노드를 buffer 에 채운다 (행군선 그리기용. 할당 없음).</summary>
+        public void FillRemainingNodes(List<PathNode> buffer)
+        {
+            buffer.Clear();
+            if (!HasRoute || _finished) return;
+            for (int i = _nextIndex; i < _route.Count; i++)
+                buffer.Add(_route[i]);
+        }
+
+        /// <summary>
+        /// 경로 중간에 호출될 수 있다. 현재 위치에서 새 경로의 첫 노드로 이어지도록 처리한다.
+        /// route[0] 은 항상 "지금 향하고 있거나 방금 지난 노드"여야야 한다.
+        /// 어긋나면 LogWarning 을 찍고 startPosition 에 서 있는 것을 유지한다 (순간이동은 호출자 몫).
+        /// </summary>
+        public void SetRoute(IReadOnlyList<PathNode> route, Vector3 startPosition)
+        {
+            _route.Clear();
+            if (route == null || route.Count == 0)
+            {
+                Clear();
+                return;
+            }
+
+            for (int i = 0; i < route.Count; i++) _route.Add(route[i]);
+
+            const float snapEpsilon = 0.05f;
+            if (Vector3.SqrMagnitude(_route[0].WorldPosition - startPosition) > snapEpsilon * snapEpsilon)
+                Debug.LogWarning($"[PathFollower] route[0]({_route[0]}) 이 startPosition({startPosition}) 멀이 있다. 호출자 경 점검.");
+
+            _position = startPosition;
+            _nextIndex = _route.Count > 1 ? 1 : 0;
+            _finished = false;
+            RecalculateLength();
+        }
+
+        public void Clear()
+        {
+            _route.Clear();
+            _nextIndex = 0;
+            _position = Vector3.zero;
+            _totalLength = 0f;
+            _travelled = 0f;
+            _finished = false;
+        }
+
+        /// <summary>
+        /// distance 만큼 전진시킨다. 경로 끝에 도달하면 IsFinished 가 true 가 된다.
+        /// 노드를 하나 이상 통과했으면 true 를 반환한다 (경로 재계산 트리거용).
+        /// </summary>
+        public bool Advance(float distance)
+        {
+            if (!HasRoute || _finished || distance <= 0f) return false;
+
+            bool passedAny = false;
+            // 무한루프 방어: 반복 상한 (경로 길이 + 버퍼). 길이 0 엣지( 같은셀노드2개) 대비.
+            int guard = _route.Count + 2;
+
+            while (distance > 0f && !_finished && guard-- > 0)
+            {
+                PathNode target = NextNode;
+                if (target == null) { _finished = true; break; }
+
+                Vector3 toTarget = target.WorldPosition - _position;
+                float segLen = toTarget.magnitude;
+
+                if (segLen <= 1e-4f)
+                {
+                    // 길이 0 엣지 — 노ード만 소비하고 진행.
+                    _nextIndex++;
+                    passedAny = true;
+                    CheckArrival();
+                    continue;
+                }
+
+                if (distance >= segLen)
+                {
+                    _position = target.WorldPosition;
+                    distance -= segLen;
+                    _travelled += segLen;
+                    _nextIndex++;
+                    passedAny = true;
+                    CheckArrival();
+                }
+                else
+                {
+                    _position += toTarget.normalized * distance;
+                    _travelled += distance;
+                    distance = 0f;
+                }
+            }
+
+            if (guard <= 0)
+                Debug.LogError($"[PathFollower] 노드 소비 반복 상한 초과. 경로 데이터 확인 (길이 0 엣지 다수?).");
+
+            return passedAny;
+        }
+
+        private void CheckArrival()
+        {
+            if (_nextIndex >= _route.Count)
+                _finished = true;
+        }
+
+        private void RecalculateLength()
+        {
+            _totalLength = 0f;
+            _travelled = 0f;
+            Vector3 prev = _position;
+            for (int i = _nextIndex; i < _route.Count; i++)
+            {
+                _totalLength += Vector3.Distance(prev, _route[i].WorldPosition);
+                prev = _route[i].WorldPosition;
+            }
+        }
+    }
+}

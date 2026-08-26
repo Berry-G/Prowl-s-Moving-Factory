@@ -19,13 +19,13 @@
 
 | 단계 | 태스크 | 상태 |
 |---|---|---|
-| 0. 환경 | P-00 ~ P-02, **P-02B(MCP)** | ☐ |
-| 1. 격자와 맵 | P-03 ~ P-04 | ☐ |
-| 2. 경로 | P-05 ~ P-07 | ☐ |
-| 3. 판의 뼈대 | P-08 ~ P-09 | ☐ |
-| 4. 액터 | P-10 ~ P-12 | ☐ |
-| 5. 플레이어 조작 | P-13 ~ P-16 | ☐ |
-| 6. 마감 | P-17 ~ P-21 | ☐ |
+| 0. 환경 | P-00 ~ P-02, **P-02B(MCP)** | ☑ P-02B 클라이언트 연동만 남음 (Unity Project Settings → AI → Integrations에서 Claude Code 적용 1회) |
+| 1. 격자와 맵 | P-03 ~ P-04 | ✅ 코드·씬·테스트 완료 (EditMode 32/32 통과) |
+| 2. 경로 | P-05 ~ P-07 | ✅ 테스트 통과 |
+| 3. 판의 뼈대 | P-08 ~ P-09 | ✅ |
+| 4. 액터 | P-10 ~ P-12 | ✅ |
+| 5. 플레이어 조작 | P-13 ~ P-16 | ✅ |
+| 6. 마감 | P-17 ~ P-21 | ◐ P-17·P-18 완료, P-20 SO 이관+시작값 완료(실측 DoD 대기), P-19 실측 후 판단, P-21 미착수 |
 
 ---
 ---
@@ -34,7 +34,7 @@
 
 ---
 
-## `[ ]` P-00. 버전 관리 초기화
+## `[x]` P-00. 버전 관리 초기화
 
 **목표:** 지금부터의 모든 변경을 되돌릴 수 있게 만든다.
 
@@ -114,7 +114,7 @@ crashlytics-build.properties
 
 ---
 
-## `[ ]` P-01. 프로젝트 설정 정리
+## `[x]` P-01. 프로젝트 설정 정리
 
 **목표:** 이후 모든 태스크가 딛고 설 설정을 못 박는다. **여기서 빠뜨린 설정은 나중에 원인 불명 버그로 돌아온다.**
 
@@ -191,7 +191,7 @@ com.unity.modules.unityanalytics
 
 ---
 
-## `[ ]` P-02. 폴더 구조와 어셈블리 정의
+## `[x]` P-02. 폴더 구조와 어셈블리 정의
 
 **목표:** 파일이 어디로 가야 하는지 고민할 필요가 없게 만든다.
 
@@ -324,7 +324,7 @@ Assets/_Project/
 
 ---
 
-## `[ ]` P-03. GridCoord + GridSystem
+## `[x]` P-03. GridCoord + GridSystem
 
 **목표:** 격자 ↔ 월드 좌표 변환의 **유일한 창구**를 만든다. 이 게임에서 가장 중요한 파일이다.
 
@@ -371,7 +371,7 @@ Scripts/Tests/GridSystemTests.cs
 
 ---
 
-## `[ ]` P-04. 맵 저작 — Tilemap 레이어로 셀 타입 그리기
+## `[x]` P-04. 맵 저작 — Tilemap 레이어로 셀 타입 그리기
 
 **목표:** 기획자/개발자가 **타일을 칠하듯** 맵을 그리고, 그것이 `CellType` 으로 읽히게 한다.
 
@@ -431,7 +431,7 @@ Scripts/Editor/GridSystemEditor.cs         (인스펙터에 "타일맵에서 다
 
 ---
 
-## `[ ]` P-05. 경로 그래프 저작 도구
+## `[x]` P-05. 경로 그래프 저작 도구
 
 **목표:** 씬에서 노드를 배치하고 선으로 잇기만 하면 경로가 만들어지게 한다.
 
@@ -498,7 +498,7 @@ Scripts/Runtime/Pathing/PathGraph.cs        (이번엔 그래프 구축까지만
 
 ---
 
-## `[ ]` P-06. 경로 탐색 + 통행 권한
+## `[x]` P-06. 경로 탐색 + 통행 권한
 
 **목표:** 지름길 기믹이 성립하는 탐색기를 만든다. **적이 지름길을 못 타는 것이 이 태스크의 핵심이다.**
 
@@ -540,7 +540,7 @@ Scripts/Tests/PathGraphTests.cs
 
 ---
 
-## `[ ]` P-07. PathFollower — 경로 위를 걷는 로직
+## `[x]` P-07. PathFollower — 경로 위를 걷는 로직
 
 **목표:** Escortee / Enemy / AllyUnit 이 **똑같은 코드**로 걷게 한다. 여기서 중복을 만들면 셋의 동작이 서서히 어긋난다.
 
@@ -581,7 +581,7 @@ Scripts/Tests/PathFollowerTests.cs
 
 ---
 
-## `[ ]` P-08. GameClock — 배속과 일시정지
+## `[x]` P-08. GameClock — 배속과 일시정지
 
 **목표:** 테스트 효율. **이걸 먼저 만들어야 이후 모든 태스크의 확인이 빨라진다.** 나중으로 미루지 마라.
 
@@ -619,7 +619,7 @@ Scripts/Runtime/Diagnostics/DebugHotkeys.cs
 
 ---
 
-## `[ ]` P-09. Combat 기반 — Health / IDamageable / TargetRegistry / Attacker
+## `[x]` P-09. Combat 기반 — Health / IDamageable / TargetRegistry / Attacker
 
 **목표:** 물리 엔진 없이 "누가 누구를 쏠 수 있는가"를 해결한다.
 
@@ -676,7 +676,7 @@ Scripts/Runtime/Combat/Attacker.cs
 
 ---
 
-## `[ ]` P-10. Escortee — 보호대상
+## `[x]` P-10. Escortee — 보호대상
 
 **목표:** 보호대상이 경로를 따라 탈출 지점까지 자동으로 간다.
 
@@ -722,7 +722,7 @@ Prefabs/Escortee.prefab
 
 ---
 
-## `[ ]` P-11. MotherSpawner — 이동하는 적 스폰 지점
+## `[x]` P-11. MotherSpawner — 이동하는 적 스폰 지점
 
 **목표:** **이 게임의 유일한 차별점을 구현한다.** 여기가 밋밋하면 프로토타입이 실패한다.
 
@@ -771,7 +771,7 @@ Data/Stages/Stage_Greybox.asset
 
 ---
 
-## `[ ]` P-12. Enemy — 잡몹
+## `[x]` P-12. Enemy — 잡몹
 
 **목표:** 적이 보호대상을 추격해 공격한다.
 
@@ -819,7 +819,7 @@ Data/Enemies/Enemy_Basic.asset
 
 ---
 
-## `[ ]` P-13. Village + 배치 슬롯 선택
+## `[x]` P-13. Village + 배치 슬롯 선택
 
 **목표:** 플레이어가 "어느 마을에서 어디로 보낼지" 고르는 입력을 만든다. **행군은 아직 안 만든다.**
 
@@ -880,7 +880,7 @@ Prefabs/Village.prefab
 
 ---
 
-## `[ ]` P-14. AllyUnit — 고용, 행군, 배치
+## `[x]` P-14. AllyUnit — 고용, 행군, 배치
 
 **목표:** **이 게임의 핵심 트레이드오프를 구현한다.** "지금 보내면 도착했을 땐 늦다"가 여기서 생긴다.
 
@@ -933,7 +933,7 @@ Data/Units/Ally_Basic.asset
 
 ---
 
-## `[ ]` P-15. Wallet — 자원과 고용 비용
+## `[x]` P-15. Wallet — 자원과 고용 비용
 
 **목표:** 고용에 비용을 붙여 선택을 강제한다.
 
@@ -965,7 +965,7 @@ Scripts/Runtime/UI/ResourceLabel.cs
 
 ---
 
-## `[ ]` P-16. 지름길 기믹
+## `[x]` P-16. 지름길 기믹
 
 **목표:** "돈으로 시간을 산다"는 두 번째 선택지를 만든다.
 
@@ -1003,7 +1003,7 @@ Scripts/Runtime/Session/ShortcutController.cs
 
 ---
 
-## `[ ]` P-17. 승패 UI와 재시작
+## `[x]` P-17. 승패 UI와 재시작
 
 **선행:** P-10
 
@@ -1022,7 +1022,7 @@ Scripts/Runtime/Session/ShortcutController.cs
 
 ---
 
-## `[ ]` P-18. 디버그 오버레이
+## `[x]` P-18. 디버그 오버레이
 
 **목표:** P-21 플레이 테스트에서 **수치를 눈으로 읽을 수 있게** 한다. 이게 없으면 검증이 감으로 끝난다.
 

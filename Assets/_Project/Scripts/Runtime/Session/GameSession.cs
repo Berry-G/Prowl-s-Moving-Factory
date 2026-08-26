@@ -1,0 +1,97 @@
+using System;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using PMF.Actors;
+using PMF.Combat;
+using PMF.Data;
+using PMF.Pathing;
+
+namespace PMF.Session
+{
+    /// <summary>판 전체 상태. 승패 판정과 전역 이벤트 허브.</summary>
+    public sealed class GameSession : MonoBehaviour
+    {
+        public static GameSession Instance { get; private set; }
+
+        [SerializeField] private StageDefinition _definition;
+        [SerializeField] private Wallet _wallet;
+
+        private GameResult _result = GameResult.InProgress;
+        private float _elapsedTime;
+        private Escortee _escortee;
+
+        public GameResult Result => _result;
+        public float ElapsedTime => _elapsedTime;
+        public Wallet Wallet => _wallet;
+        public StageDefinition Definition => _definition;
+
+        /// <summary>현재 보호대상. RegisterEscortee 로 등록된다.</summary>
+        public Escortee Escortee => _escortee;
+
+        /// <summary>보호대상이 경로 노드를 통과했을 때. 잡몹/모체의 경로 재계산 트리거.</summary>
+        public event Action<PathNode> OnEscorteeReachedNode;
+
+        /// <summary>승패가 확정되었을 때. UI 가 구독한다.</summary>
+        public event Action<GameResult> OnGameEnded;
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Debug.LogError($"[{nameof(GameSession)}] 씬에 두 개 이상 존재합니다.", this);
+                enabled = false;
+                return;
+            }
+
+            Instance = this;
+
+            // static TargetRegistry 는 씬 리로드로는 초기화되지 않는다 — 여기서 명시 초기화.
+            TargetRegistry.Clear();
+
+            if (_wallet == null) _wallet = GetComponentInChildren<Wallet>();
+            if (_definition != null && _wallet != null)
+                _wallet.Initialize(_definition.StartingResource, _definition.ResourcePerSecond);
+            else
+                Debug.LogError($"[{nameof(GameSession)}] StageDefinition 또는 Wallet 이 없습니다.", this);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
+        private void Update()
+        {
+            if (_result == GameResult.InProgress)
+                _elapsedTime += Time.deltaTime;
+        }
+
+        internal void RegisterEscortee(Escortee escortee) => _escortee = escortee;
+
+        internal void NotifyEscorteeReachedNode(PathNode node)
+            => OnEscorteeReachedNode?.Invoke(node);
+
+        public void DeclareVictory() => EndGame(GameResult.Victory);
+        public void DeclareDefeat() => EndGame(GameResult.Defeat);
+
+        private void EndGame(GameResult result)
+        {
+            if (_result != GameResult.InProgress) return;
+
+            _result = result;
+            Debug.Log($"[GameSession] {result} ({_elapsedTime:F1}초)");
+
+            GameClock.Instance?.Pause();
+            OnGameEnded?.Invoke(result);
+        }
+
+        /// <summary>현재 씬 리로드. 로드 전 timeScale 복구 + 레지스트리 초기화.</summary>
+        public void RestartStage()
+        {
+            Time.timeScale = 1f;
+            TargetRegistry.Clear();
+            Scene scene = SceneManager.GetActiveScene();
+            SceneManager.LoadScene(scene.name);
+        }
+    }
+}

@@ -2,7 +2,10 @@
     "name": "PMF.Editor",
     "rootNamespace": "PMF.EditorTools",
     "references": [
-        "PMF.Runtime"
+        "PMF.Runtime",
+        "Unity.InputSystem",
+        "UnityEditor.TestRunner",
+        "UnityEngine.TestRunner"
     ],
     "includePlatforms": [
         "Editor"

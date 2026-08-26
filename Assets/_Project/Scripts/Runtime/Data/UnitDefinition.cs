@@ -1,0 +1,27 @@
+using UnityEngine;
+
+namespace PMF.Data
+{
+    /// <summary>아군 유닛 정의. 읽기 전용. 런타임에 필드를 수정하지 마라.</summary>
+    [CreateAssetMenu(menuName = "PMF/Unit Definition")]
+    public sealed class UnitDefinition : ScriptableObject
+    {
+        [SerializeField] private string _displayName = "Ally";
+        [SerializeField] private float _moveSpeed = 2.5f;          // 행군 속도 (셀/초)
+        [SerializeField] private float _maxHealth = 50f;
+        [SerializeField] private float _attackRange = 3.5f;
+        [SerializeField] private float _attackDamage = 10f;
+        [SerializeField] private float _attackInterval = 0.8f;
+        [SerializeField] private int _hireCost = 50;
+        [SerializeField] private GameObject _prefab;
+
+        public string DisplayName => _displayName;
+        public float MoveSpeed => _moveSpeed;
+        public float MaxHealth => _maxHealth;
+        public float AttackRange => _attackRange;
+        public float AttackDamage => _attackDamage;
+        public float AttackInterval => _attackInterval;
+        public int HireCost => _hireCost;
+        public GameObject Prefab => _prefab;
+    }
+}

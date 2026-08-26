@@ -1,38 +1,91 @@
+using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using PMF.Grid;
+using PMF.Pathing;
 
 namespace PMF.EditorTools
 {
     /// <summary>
-    /// P-02 부트스트랩: Stage_Greybox 씬을 생성하고 빌드 씬 목록 0번에 등록한다.
+    /// Stage_Greybox 씬 전체를 코드로 구축한다 (P-02/P-04/P-05 저작 포함).
     /// 배치 실행: Unity.exe -batchmode -quit -executeMethod PMF.EditorTools.SceneBootstrap.CreateGreyboxScene
-    /// 에디터 메뉴로도 실행 가능하다 (PMF/Create Greybox Scene).
+    /// 에디터 메뉴: PMF/Create Greybox Scene
     /// </summary>
     public static class SceneBootstrap
     {
-        private const string ScenePath = "Assets/_Project/Scenes/Stage_Greybox.unity";
+        internal const string ScenePath = "Assets/_Project/Scenes/Stage_Greybox.unity";
 
         [MenuItem("PMF/Create Greybox Scene")]
         public static void CreateGreyboxScene()
         {
-            // 프로젝트 기본 동작 모드가 2D(m_DefaultBehaviorMode: 1)이므로 새 씬은 2D로 만들어진다.
+            var factory = GreyboxFactory.BuildAll();
+
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
-            // 그레이박스 카메라는 직교 투영. 위치는 32x18 맵 중앙 근처(P-03에서 확정).
-            var camera = Object.FindFirstObjectByType<Camera>();
-            if (camera != null)
-            {
-                camera.orthographic = true;
-                camera.transform.position = new Vector3(16f, 9f, -10f);
-            }
+            // 기본 씬에 들어오는 라이트는 2D 그레이박스에 불필요.
+            foreach (var light in Object.FindObjectsByType<Light>())
+                Object.DestroyImmediate(light.gameObject);
+
+            SetupCamera();
+            SceneParts.BuildMap(factory);
+            SceneParts.BuildServices(factory);
+            SceneParts.BuildPathNodes();
+            SceneParts.BuildActors(factory);
+            SceneParts.BuildUI();
+            ApplyScriptExecutionOrder();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-
-            // Build Profiles 의 씬 목록(인덱스 0)에 등록한다.
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
-            Debug.Log($"[SceneBootstrap] {ScenePath} 생성 및 빌드 씬 목록 0번 등록 완료");
+            Debug.Log($"[SceneBootstrap] {ScenePath} 구축 완료");
+            AssetDatabase.SaveAssets();
+        }
+
+        [MenuItem("PMF/Delete Build Marker")]
+        public static void DeleteBuildMarker()
+        {
+            string path = Path.Combine(Directory.GetParent(Application.dataPath).FullName,
+                                       "Logs", "pmf-greybox-build.flag");
+            if (File.Exists(path)) File.Delete(path);
+            Debug.Log("[SceneBootstrap] 빌드 마커 삭제 — 다음 도메인 리로드 때 재구축된다");
+        }
+
+        private static void SetupCamera()
+        {
+            var camera = Object.FindAnyObjectByType<Camera>();
+            if (camera == null) return;
+            camera.orthographic = true;
+            camera.transform.position = new Vector3(0f, 0f, -10f);
+            camera.orthographicSize = 9.5f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.08f, 0.08f, 0.1f);
+        }
+
+        /// <summary>Script Execution Order 등록 (ARCHITECTURE §4).</summary>
+        private static void ApplyScriptExecutionOrder()
+        {
+            SetOrder<GridSystem>(-200);
+            SetOrder<PathGraph>(-190);
+            SetOrder<Session.GameClock>(-180);
+            SetOrder<Session.GameSession>(-170);
+        }
+
+        private static void SetOrder<T>(int order) where T : MonoBehaviour
+        {
+            try
+            {
+                var temp = new GameObject("__temp_order__");
+                var component = temp.AddComponent<T>();
+                var script = MonoScript.FromMonoBehaviour(component);
+                if (script != null)
+                    MonoImporter.SetExecutionOrder(script, order);
+                Object.DestroyImmediate(temp);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[SceneBootstrap] 실행 순서 설정 실패 ({typeof(T).Name}): {e.Message}");
+            }
         }
     }
 }
