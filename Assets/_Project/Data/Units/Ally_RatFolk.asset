@@ -19,4 +19,13 @@ MonoBehaviour:
   _attackDamage: 26
   _attackInterval: 1.8
   _hireCost: 110
+  _redeployCooldown: 3
+  _refundRatio: 0.5
+  _tiers:
+  - _cost: 140
+    _attackDamage: 38
+    _attackRange: 6.8
+  - _cost: 230
+    _attackDamage: 54
+    _attackRange: 7.5
   _prefab: {fileID: 5802848042911389286, guid: 98762785da4ec6240986ec790c7769bf, type: 3}

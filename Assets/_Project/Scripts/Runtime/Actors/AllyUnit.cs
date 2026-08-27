@@ -72,6 +72,38 @@ namespace PMF.Actors
         /// <summary>회수 시 돌려받는 자원 = 투입 총액 × 환불률 (ADR-0008 확정 기준).</summary>
         public int RefundAmount => Mathf.FloorToInt(_investedAmount * (_def != null ? _def.RefundRatio : 0.5f));
 
+        // --- 업그레이드 (G-05) ---
+        // 가변 상태는 이 인스턴스만 갖는다. SO(_def)는 절대 런타임에 수정하지 않는다 (CLAUDE.md §4).
+        private int _tierLevel;   // 0 = Lv1. Tiers[_tierLevel] = 다음 단계 정의.
+
+        /// <summary>현재 티어 (0 = Lv1). 이동해도 유지된다.</summary>
+        public int TierLevel => _tierLevel;
+
+        /// <summary>다음 단계로 강화 가능한가 (최대 티어 = false).</summary>
+        public bool CanUpgrade => _def != null && _tierLevel < _def.Tiers.Count;
+
+        /// <summary>다음 단계 강화 비용. 최대 티어면 0.</summary>
+        public int NextUpgradeCost => CanUpgrade ? _def.Tiers[_tierLevel].Cost : 0;
+
+        /// <summary>강화 적용. 자원 차감은 호출자(DeploymentController)가 하고, 여기선 티어 상승 + Attacker 갱신만.</summary>
+        public void ApplyUpgrade()
+        {
+            if (!CanUpgrade) return;
+
+            var tier = _def.Tiers[_tierLevel];
+            _investedAmount += tier.Cost;   // 투입 총액 누적 — 회수 환불 기준 (ADR-0008)
+            _tierLevel++;
+
+            if (_attacker != null)
+            {
+                _attacker.Damage = tier.AttackDamage;
+                _attacker.Range = tier.AttackRange;
+            }
+
+            // 티어를 크기로 구분 (코드 보간 — 파티클/애니메이션 금지). 사거리 원(G-06)은 Attacker.Range 를 따라 크진다.
+            transform.localScale = _initialScale * (1f + 0.12f * _tierLevel);
+        }
+
         private void Awake()
         {
             _session = GameSession.Instance;

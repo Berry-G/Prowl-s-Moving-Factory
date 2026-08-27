@@ -64,6 +64,15 @@ namespace PMF.Session
                 return;
             }
 
+            // 강화 단축키 (G-05) — 선택된 유닛을 다음 티어로. 즉시 적용, 행군 없음 (ADR-0009).
+            // 버튼 비활성 표시는 G-15 정보 패널이 담당한다.
+            if (keyboard != null && keyboard.uKey.wasPressedThisFrame
+                && _selection != null && _selection.Selected != null)
+            {
+                TryUpgrade(_selection.Selected);
+                return;
+            }
+
             if (!mouse.leftButton.wasPressedThisFrame) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;   // UI 클릭이 맵으로 새는 것을 차단
@@ -238,6 +247,28 @@ namespace PMF.Session
         {
             GameSession.Instance.Wallet.Add(refund);
             Debug.Log($"[Retire] {unit.name} 회수 — 환불 {refund} (투입 {unit.InvestedAmount})");
+        }
+
+        /// <summary>강화 명령 (G-05, ADR-0009). 자원 차감 → 티어 상승 → Attacker 갱신. SO 는 건드리지 않는다.</summary>
+        private void TryUpgrade(AllyUnit unit)
+        {
+            if (!unit.CanUpgrade)
+            {
+                Debug.Log("[Upgrade] 이미 최대 티어");
+                return;
+            }
+
+            int cost = unit.NextUpgradeCost;
+            var wallet = GameSession.Instance.Wallet;
+            if (!wallet.CanAfford(cost))
+            {
+                Debug.Log($"[Upgrade] 자원 부족 ({cost} 필요)");
+                return;
+            }
+
+            wallet.TrySpend(cost);
+            unit.ApplyUpgrade();
+            Debug.Log($"[Upgrade] {unit.name} → Lv{unit.TierLevel + 1} (비용 {cost}, 공격 {unit.GetComponent<Combat.Attacker>().Damage} · 사거리 {unit.GetComponent<Combat.Attacker>().Range})");
         }
 
         /// <summary>Buildable && 미예약 칸 하이라이트 (반투명 하늘색 오버레이).</summary>
