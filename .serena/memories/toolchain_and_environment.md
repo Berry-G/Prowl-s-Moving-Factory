@@ -62,10 +62,13 @@ JSON 에 `\\` 를 넣으려고 `\\` 를 넣으면 `\` 가 나와 파일이 깨�
   `[c for c in text if ord(c)<32 and c not in chr(10)+chr(9)]`
 - 남의 설정 파일을 고칠 땐 **먼저 백업**한다
 
-## Unity 검증 제약
+## Unity 검증
 
-- **Unity 에디터를 이 세션에서 연 적이 없다.** 컴파일·플레이 검증은 수행되지 않았다.
-- 스크립트를 만들었다면 "동작 확인됨"이라고 쓰지 마라. `CLAUDE.md` §5 의 규칙이 이것 때문이다.
-- 프로젝트에 git 이 아직 없다. 첫 태스크 P-00 이 `git init` 이다.
+**2026-08-27 부터 `unity` CLI 로 컴파일·콘솔·테스트를 직접 검증한다** → `mem:unity_cli`
+`unity` = `C:\Users\kyc\AppData\Local\Unity\bin\unity` (PATH 에 있음, 1.0.0-beta.6)
 
-관련: `mem:project_overview`
+- 검증하지 않았으면 "동작 확인됨" 이라고 쓰지 마라. `CLAUDE.md` §5 의 규칙이 이것 때문이다.
+  이제는 검증할 수단이 있으니, 안 했다면 그건 게으름이지 제약이 아니다.
+- 에디터가 꺼져 있거나 Safe Mode 면 CLI 가 붙지 않는다. 그때만 "검증 불가" 라고 쓸 수 있다.
+
+관련: `mem:project_overview` · `mem:unity_cli`
