@@ -25,6 +25,7 @@ namespace PMF.Actors
         private Escortee _escortee;
         private EnemyDefinition _def;
         private Attacker _attacker;
+        private PMF.UI.ShotLine _shotLine;
         private Health _health;
         private PathNode _spawnNode;
 
@@ -74,6 +75,12 @@ namespace PMF.Actors
                 _attacker.Damage = _def.AttackDamage;
                 _attacker.Interval = _def.AttackInterval;
                 _attacker.TargetTeam = Team.Escortee;
+
+                // 사격 연출 (G-07) — 적 공격은 붉은 직선 (로봇 = 원거리 사격 톤).
+                _attacker.OnFired += HandleFired;
+                var shotGo = new GameObject("ShotLine");
+                shotGo.transform.SetParent(transform, false);
+                _shotLine = shotGo.AddComponent<PMF.UI.ShotLine>();
             }
 
             // D-04 토글: 기본값 false. true 면 상황에 따라 TargetTeam 을 Ally 로 전환 (동작은 비워 둔다).
@@ -95,6 +102,15 @@ namespace PMF.Actors
             // 구독 해제를 빠뜨리면 MissingReferenceException 폭탄.
             if (_session != null) _session.OnEscorteeReachedNode -= OnEscorteeMoved;
             if (_health != null) _health.OnDied -= OnDied;
+            if (_attacker != null) _attacker.OnFired -= HandleFired;
+        }
+
+        /// <summary>적 공격 연출 (G-07) — 붉은 직선. 원거리 스타일.</summary>
+        private void HandleFired(IDamageable target)
+        {
+            if (_shotLine == null || target == null) return;
+            float seconds = _session.Definition != null ? _session.Definition.ShotLineSeconds : 0.07f;
+            _shotLine.Show(transform.position, target, new Color(1f, 0.25f, 0.2f, 0.95f), false, seconds);
         }
 
         private void OnEscorteeMoved(PathNode node) => RecalculateRoute();

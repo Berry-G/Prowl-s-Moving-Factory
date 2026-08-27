@@ -32,6 +32,7 @@ namespace PMF.Actors
         private Attacker _attacker;
         private SpriteRenderer _sprite;
         private LineRenderer _marchLine;
+        private UI.ShotLine _shotLine;
 
         private GridCoord _targetSlot;
         private bool _onStraightLeg;          // 마지막 노드 → 슬롯 직선 구간
@@ -129,11 +130,30 @@ namespace PMF.Actors
             ConfigureCombat();
             _health.Initialize(_def.MaxHealth, Team.Ally);
             _health.OnDied += OnDied;
+
+            // 사격 연출 (G-07) — 발사 이벤트 구독. UI 는 이벤트로만 분리.
+            if (_attacker != null)
+            {
+                _attacker.OnFired += HandleFired;
+                var go = new GameObject("ShotLine");
+                go.transform.SetParent(transform, false);
+                _shotLine = go.AddComponent<UI.ShotLine>();
+            }
+        }
+
+        /// <summary>발사 순간 연출. 근접(고양이)은 짧은 호, 원거리(쥐)는 직선 — 사거리 3 기준 판정 (G-07 현장 결정).</summary>
+        private void HandleFired(IDamageable target)
+        {
+            if (_shotLine == null || target == null) return;
+            bool melee = _attacker != null && _attacker.Range < 3f;
+            float seconds = _session.Definition != null ? _session.Definition.ShotLineSeconds : 0.07f;
+            _shotLine.Show(transform.position, target, new Color(0.55f, 0.75f, 1f, 0.95f), melee, seconds);
         }
 
         private void OnDisable()
         {
             if (_health != null) _health.OnDied -= OnDied;
+            if (_attacker != null) _attacker.OnFired -= HandleFired;
         }
 
         /// <summary>고용 확정 즉시 호출. village.DepartureNode 에서 slot 까지 걷는다.</summary>

@@ -25,6 +25,8 @@ namespace PMF.Data
         [Header("배치 UI")]
         [Tooltip("배치 UI(고용 패널 등)가 떠 있는 동안의 슬로우모션 배속. 감각 수치 — P-21 에서 튜닝 대상.")]
         [SerializeField] private float _uiSlowMotionScale = 0.1f;
+        [Tooltip("사격 선 연출 지속 시간 (초, 게임시간 기준). G-07.")]
+        [SerializeField] private float _shotLineSeconds = 0.07f;
 
         [Header("미결정 토글 (GDD §13)")]
         [SerializeField] private bool _alliesCanDieWhileMarching = false;   // D-03 토글
@@ -46,5 +48,6 @@ namespace PMF.Data
         public bool AlliesCanDieWhileMarching => _alliesCanDieWhileMarching;
         public bool EnemiesTargetAllies => _enemiesTargetAllies;
         public float UiSlowMotionScale => _uiSlowMotionScale;
+        public float ShotLineSeconds => _shotLineSeconds;
     }
 }
