@@ -88,7 +88,15 @@ namespace PMF.Session
         /// <summary>현재 씬 리로드. 로드 전 timeScale 복구 + 레지스트리 초기화.</summary>
         public void RestartStage()
         {
-            Time.timeScale = 1f;
+            // 배속/일시정지 상태로 재시작해도 정상 속도로 시작해야 한다.
+            // Time.timeScale 직접 대입 금지 — GameClock 을 통해서만 되돌린다.
+            var clock = GameClock.Instance;
+            if (clock != null)
+            {
+                clock.SetSpeed(1f);
+                clock.Resume();
+            }
+
             TargetRegistry.Clear();
             Scene scene = SceneManager.GetActiveScene();
             SceneManager.LoadScene(scene.name);
