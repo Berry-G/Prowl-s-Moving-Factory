@@ -11,7 +11,7 @@ namespace PMF.Grid
     /// 셀 중심 규약:
     ///   셀 (x, y) 의 중심 월드 좌표 = _origin + ((x + 0.5f) * _cellSize, (y + 0.5f) * _cellSize)
     ///   즉 _origin 은 셀 (0,0) 의 좌하단 모서리다.
-    ///   WorldToCell 은 Mathf.FloorToInt 를 쓴다 (음수 좌표에서 (int) 캐스팅은 0 방향로 잘라서틀린다).
+    ///   WorldToCell 은 Mathf.FloorToInt 를 쓴다 (음수 좌표에서 (int) 캐스팅은 0 방향으로 잘라서 틀린다).
     /// </summary>
     public sealed class GridSystem : MonoBehaviour
     {

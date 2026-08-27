@@ -62,7 +62,7 @@ namespace PMF.UI
             if (_label != null) _label.gameObject.SetActive(!open);
         }
 
-        /// <summary>열린 순간 짧 피드백 — 마커가 잠깐 커진다.</summary>
+        /// <summary>열린 순간 짧은 피드백 — 마커가 잠깐 커진다.</summary>
         internal void Pulse() => _pulse = 0.25f;
 
         private void Update()
@@ -79,7 +79,7 @@ namespace PMF.UI
             }
         }
 
-        /// <summary>클릭 판정용: world 와 엣지 중점 사 거리.</summary>
+        /// <summary>클릭 판정용: world 와 엣지 중점 사이 거리.</summary>
         public bool IsNear(Vector3 world, float radius) =>
             (Midpoint - world).sqrMagnitude <= radius * radius;
     }

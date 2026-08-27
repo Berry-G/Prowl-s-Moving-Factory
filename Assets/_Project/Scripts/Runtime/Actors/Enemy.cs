@@ -133,7 +133,7 @@ namespace PMF.Actors
                     break;
 
                 case State.Attacking:
-                    // 이탈 = Range * 1.2 — 매 프레ーム Moving/Attacking 토글 방지.
+                    // 이탈 = Range * 1.2 — 매 프레임 Moving/Attacking 토글 방지.
                     float exitRange = range * 1.2f;
                     if (distSqr > exitRange * exitRange)
                         _state = State.Moving;

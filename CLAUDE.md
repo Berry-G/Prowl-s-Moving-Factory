@@ -137,8 +137,18 @@ Assets/_Project/
 - 태스크에 명시되지 않은 기능을 "있으면 좋을 것 같아서" 추가하지 마라.
 - 스크립트를 만들었으면 **씬/프리팹 연결까지가 그 태스크의 완료**다. 코드만 두고 "완료"라고 하지 마라.
 - 에디터가 열려 있지 않아 컴파일 검증이 불가능하면, **그 사실을 명시**하고 "동작 확인됨"이라고 쓰지 마라.
-- **Unity MCP 가 붙어 있으면** 코드를 쓴 뒤 컴파일 결과와 콘솔을 **직접 확인하고** 보고하라. 확인 없이 "완료"라고 쓰지 마라. (연결 방법: `.docs/TASKS-P1-prototype.md` P-02B)
-- **MCP 는 검증용이다.** 파일 작성·편집은 기존 도구로 한다. MCP 로 씬이나 에셋을 임의 편집하지 마라 — 태스크에 명시된 것만.
+- **Unity CLI 가 붙어 있으면** 코드를 쓴 뒤 컴파일 결과·콘솔·테스트를 **직접 확인하고** 보고하라. 확인 없이 "완료"라고 쓰지 마라.
+  ```bash
+  unity status --no-banner                                   # state 가 "ready" 여야 한다
+  unity command recompile --no-banner                        # → recompile_status 로 폴링
+  unity command console --tail 50 --level error --no-banner
+  unity command run_tests --mode EditMode --no-banner
+  ```
+  붙지 않으면 에디터가 꺼져 있거나 **Safe Mode**(컴파일 에러로 부팅 실패)다. 파일 직접 편집으로 도망가지 마라.
+- **씬·프리팹 연결은 CLI 로 한다.** `.unity` / `.prefab` YAML 을 손으로 만지지 마라.
+  (`create_gameobject`, `attach_script`, `set_serialized_field`, `instantiate_prefab`, `save_prefab_contents` …)
+- **그 외 쓰기는 태스크에 명시된 것만.** 검증 목적이라며 씬이나 에셋을 임의로 고치지 마라.
+- 기존 Unity **MCP 7개 도구**는 보조로 남아 있다. 새 작업의 기본 수단으로 고르지 마라.
 - 결정을 내렸으면 `.docs/adr/` 에 한 장 남겨라. 짧게.
 
 ---

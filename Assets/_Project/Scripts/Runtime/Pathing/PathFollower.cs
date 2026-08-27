@@ -39,7 +39,7 @@ namespace PMF.Pathing
 
         /// <summary>
         /// 경로 중간에 호출될 수 있다. 현재 위치에서 새 경로의 첫 노드로 이어지도록 처리한다.
-        /// route[0] 은 항상 "지금 향하고 있거나 방금 지난 노드"여야야 한다.
+        /// route[0] 은 항상 "지금 향하고 있거나 방금 지난 노드"여야 한다.
         /// 어긋나면 LogWarning 을 찍고 startPosition 에 서 있는 것을 유지한다 (순간이동은 호출자 몫).
         /// </summary>
         public void SetRoute(IReadOnlyList<PathNode> route, Vector3 startPosition)
@@ -55,7 +55,7 @@ namespace PMF.Pathing
 
             const float snapEpsilon = 0.05f;
             if (Vector3.SqrMagnitude(_route[0].WorldPosition - startPosition) > snapEpsilon * snapEpsilon)
-                Debug.LogWarning($"[PathFollower] route[0]({_route[0]}) 이 startPosition({startPosition}) 멀이 있다. 호출자 경 점검.");
+                Debug.LogWarning($"[PathFollower] route[0]({_route[0]}) 이 startPosition({startPosition}) 에서 멀리 떨어져 있다. 호출자 경로를 점검하라.");
 
             _position = startPosition;
             _nextIndex = _route.Count > 1 ? 1 : 0;
@@ -95,7 +95,7 @@ namespace PMF.Pathing
 
                 if (segLen <= 1e-4f)
                 {
-                    // 길이 0 엣지 — 노ード만 소비하고 진행.
+                    // 길이 0 엣지 — 노드만 소비하고 진행.
                     _nextIndex++;
                     passedAny = true;
                     CheckArrival();
