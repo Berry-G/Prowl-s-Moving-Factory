@@ -88,6 +88,8 @@ namespace PMF.Session
 
                 _selectedVillage = village;
                 _mode = Mode.UnitSelect;
+                GameClock.Instance?.EnterUiSlowMotion();   // 배치 조작 전체(고용~슬롯 선택)는 정밀 조작이 필요한 UI 취급.
+                ShowHighlights();   // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
 
                 var wallet = GameSession.Instance.Wallet;
                 _hirePanel.Show(village.HireableUnits, wallet, OnUnitPicked);
@@ -101,7 +103,6 @@ namespace PMF.Session
             _selectedUnit = unit;
             _mode = Mode.SlotSelect;
             _hirePanel.Hide();
-            ShowHighlights();
             Debug.Log($"[Deployment] 유닛 선택: {unit.DisplayName} — 슬롯을 고르라");
         }
 
@@ -150,6 +151,7 @@ namespace PMF.Session
             _selectedUnit = null;
             if (_hirePanel != null) _hirePanel.Hide();
             ClearHighlights();
+            GameClock.Instance?.ExitUiSlowMotion();   // 취소/고용 확정 어느 쪽으로 끝나도 여기서 복귀.
         }
 
         /// <summary>Buildable && 미예약 칸 하이라이트 (반투명 하늘색 오버레이).</summary>
@@ -173,8 +175,11 @@ namespace PMF.Session
 
                     var renderer = quad.GetComponent<Renderer>();
                     renderer.material = new Material(Shader.Find("Sprites/Default"));
-                    renderer.material.color = new Color(0.5f, 0.9f, 1f, 0.35f);
+                    // 하늘색 반투명은 이미 파란 Buildable 타일과 겹쳐서 안 보인다 — 노랑으로 확실히 대비.
+                    renderer.material.color = new Color(1f, 0.9f, 0.2f, 0.65f);
                     renderer.sortingLayerName = "Deploy";
+                    // Tilemap_Buildable 도 같은 레이어의 order=0 이라 동률이면 타일이 위로 뜬다 — 확실히 더 높게.
+                    renderer.sortingOrder = 5;
 
                     _highlights.Add(quad);
                 }
