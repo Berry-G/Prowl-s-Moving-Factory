@@ -28,6 +28,14 @@ namespace PMF.Data
         [Tooltip("사격 선 연출 지속 시간 (초, 게임시간 기준). G-07.")]
         [SerializeField] private float _shotLineSeconds = 0.07f;
 
+        [Header("격파 연출 (G-08)")]
+        [Tooltip("피격 플래시 지속 시간 (초, 게임시간 기준).")]
+        [SerializeField] private float _hitFlashSeconds = 0.08f;
+        [Tooltip("격파 시 흩어질 부품 조각 수 (GDD §12: 폭발이 아니라 부품 흩어짐).")]
+        [SerializeField] private int _debrisCount = 5;
+        [Tooltip("부품 조각 수명 (초, 게임시간 기준).")]
+        [SerializeField] private float _debrisSeconds = 0.35f;
+
         [Header("미결정 토글 (GDD §13)")]
         [SerializeField] private bool _alliesCanDieWhileMarching = false;   // D-03 토글
         [SerializeField] private bool _enemiesTargetAllies = false;         // D-04 토글
@@ -49,5 +57,8 @@ namespace PMF.Data
         public bool EnemiesTargetAllies => _enemiesTargetAllies;
         public float UiSlowMotionScale => _uiSlowMotionScale;
         public float ShotLineSeconds => _shotLineSeconds;
+        public float HitFlashSeconds => _hitFlashSeconds;
+        public int DebrisCount => _debrisCount;
+        public float DebrisSeconds => _debrisSeconds;
     }
 }

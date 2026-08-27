@@ -81,6 +81,11 @@ namespace PMF.Actors
                 var shotGo = new GameObject("ShotLine");
                 shotGo.transform.SetParent(transform, false);
                 _shotLine = shotGo.AddComponent<PMF.UI.ShotLine>();
+
+                // 피격 플래시 (G-08) — 기존 Health.OnDamaged 구독.
+                var flash = gameObject.AddComponent<PMF.UI.HitFlash>();
+                flash.Init(GetComponent<PMF.Combat.Health>(), GetComponent<SpriteRenderer>(),
+                           _session.Definition != null ? _session.Definition.HitFlashSeconds : 0.08f);
             }
 
             // D-04 토글: 기본값 false. true 면 상황에 따라 TargetTeam 을 Ally 로 전환 (동작은 비워 둔다).
@@ -183,7 +188,14 @@ namespace PMF.Actors
 
         private void OnDied(Health health)
         {
-            // 프로토타입 격파 연출은 Destroy. 풀링은 P-19 (실측 후).
+            // 격파 연출 (G-08, GDD §12) — 부품이 흩어진다. 레지스트리 해제는 Health.TakeDamage 가 이미 했다.
+            var stage = _session != null ? _session.Definition : null;
+            int count = stage != null ? stage.DebrisCount : 5;
+            float seconds = stage != null ? stage.DebrisSeconds : 0.35f;
+            var sr = GetComponent<SpriteRenderer>();
+            var color = sr != null ? sr.color : new Color(0.9f, 0.3f, 0.25f);
+            UI.DebrisScatter.Spawn(transform.position, color, count, seconds);
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             Diagnostics.DebugOverlay.NotifyEnemyKilled();
 #endif
