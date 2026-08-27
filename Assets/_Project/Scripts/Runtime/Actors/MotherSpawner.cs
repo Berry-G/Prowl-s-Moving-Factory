@@ -27,7 +27,10 @@ namespace PMF.Actors
 
         private SpriteRenderer _sprite;
         private Color _baseColor;
+        private Vector3 _baseScale;
         private Transform _enemiesParent;
+        private UI.SpawnTelegraph _telegraph;
+        private bool _telegraphActive;
 
         private void Start()
         {
@@ -59,6 +62,12 @@ namespace PMF.Actors
 
             _sprite = GetComponent<SpriteRenderer>();
             if (_sprite != null) _baseColor = _sprite.color;
+            _baseScale = transform.localScale;
+
+            // 스폰 예고 링 (G-10) — 모체 자식. 예고 중 모체가 이동해도 따라간다.
+            var telegraphGo = new GameObject("SpawnTelegraph");
+            telegraphGo.transform.SetParent(transform, false);
+            _telegraph = telegraphGo.AddComponent<UI.SpawnTelegraph>();
 
             _stateTimer = _def.MotherSpawnDelay;
 
@@ -139,12 +148,21 @@ namespace PMF.Actors
                     transform.position += toEscortee.normalized * (_def.MotherSpeed * dt);
             }
 
-            // 스폰 0.5초 전 예고 연출 — 모체 색이 잠깐 밝아진다.
+            // 스폰 예고 (G-10, GDD §7) — 스폰 _spawnTelegraphSeconds 전에 링 확산 + 모체 살짝 확대.
+            // 예고 시간은 스폰 간격에 포함된다 (첫 스폰이 늦어지지 않는다 — 함정 목록).
             float timeToNext = Mathf.Max(_def.MotherSpawnInterval - _stateTimer, 0f);
-            if (_sprite != null)
+            if (!_telegraphActive && timeToNext <= _def.SpawnTelegraphSeconds && timeToNext > 0f)
             {
-                float flash = timeToNext < 0.5f ? 0.5f : 0f;
-                _sprite.color = Color.Lerp(_baseColor, Color.white, flash);
+                _telegraphActive = true;
+                _telegraph.Show(_def.SpawnTelegraphSeconds, 1.2f);
+            }
+
+            if (_telegraphActive)
+            {
+                float k = _def.SpawnTelegraphSeconds > 0f
+                    ? Mathf.Clamp01(1f - timeToNext / _def.SpawnTelegraphSeconds)
+                    : 0f;
+                transform.localScale = _baseScale * (1f + 0.15f * k);   // 살짝 커졌다 돌아온다
             }
 
             // InvokeRepeating 금지 — Update 타이머 누산.
@@ -152,6 +170,9 @@ namespace PMF.Actors
             if (_stateTimer >= _def.MotherSpawnInterval)
             {
                 _stateTimer -= _def.MotherSpawnInterval;
+                _telegraphActive = false;
+                _telegraph.End();          // 링이 사라지는 그 프레임에 적이 나온다
+                transform.localScale = _baseScale;
                 SpawnEnemy();
             }
         }
