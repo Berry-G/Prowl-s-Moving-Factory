@@ -48,7 +48,10 @@ namespace PMF.EditorTools
         public static readonly Vector2Int N13_Exit = new Vector2Int(30, 6);
 
         public static readonly Vector2Int EscorteeSpawnCell = N0_Start;
-        public static readonly Vector2Int MotherSpawnCell = new Vector2Int(28, 9);
+
+        /// <summary>모체는 "추격자"다 — 호위대상과 같은 시작점에서 출발해야 뒤쫓아오는 그림이 된다.
+        /// 예전에 탈출 지점 근처(반대쪽 끝)에 찍혀 있어서 방향이 거꾸로였다.</summary>
+        public static readonly Vector2Int MotherSpawnCell = N0_Start;
 
         /// <summary>노드 정의: 이름 / 셀 / 플래그. 순서 = Id (계층 순서).</summary>
         public struct NodeDef

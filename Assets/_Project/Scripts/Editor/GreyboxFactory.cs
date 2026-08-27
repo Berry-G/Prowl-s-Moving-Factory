@@ -12,6 +12,9 @@ namespace PMF.EditorTools
         private const string PrefabRoot = "Assets/_Project/Prefabs";
         private const string DataRoot = "Assets/_Project/Data";
 
+        /// <summary>StageDefinition 에셋 경로. SceneParts 가 참조 유실 시 여기서 다시 읽는다.</summary>
+        internal const string StageAssetPath = DataRoot + "/Stages/Stage_Greybox.asset";
+
         internal struct Result
         {
             public GameObject EscorteePrefab;
@@ -97,7 +100,7 @@ namespace PMF.EditorTools
         private static GameObject CreateEscorteePrefab()
         {
             var go = new GameObject("Escortee");
-            AddSprite(go, GreyboxSprites.GetOrCreateCircle(), Color.white, "Actors", 0.6f);
+            AddSprite(go, GreyboxSprites.GetOrCreateHeart(), new Color(0.95f, 0.35f, 0.55f), "Actors", 0.9f);
             go.AddComponent<Health>();
             go.AddComponent<Escortee>();
             return SaveAsPrefab(go, $"{PrefabRoot}/Escortee.prefab");
@@ -198,7 +201,7 @@ namespace PMF.EditorTools
 
         private static StageDefinition CreateStageDefinition(EnemyDefinition enemyDef)
         {
-            string path = $"{DataRoot}/Stages/Stage_Greybox.asset";
+            const string path = StageAssetPath;
             var def = AssetDatabase.LoadAssetAtPath<StageDefinition>(path);
             if (def == null)
             {

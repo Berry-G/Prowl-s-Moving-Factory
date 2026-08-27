@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
+using PMF.Data;
 using PMF.Grid;
 using PMF.Pathing;
 using PMF.Session;
@@ -38,8 +39,9 @@ namespace PMF.EditorTools
 
             var tileGround = GreyboxSprites.GetOrCreateTile("Tile_Ground",
                 new Color(0.24f, 0.24f, 0.27f), factory.Square);
+            // 채도 없는 회색은 Ground 와 명도만 다르고 색상은 같아서 눈에 잘 안 띈다 — 색조를 확실히 다르게.
             var tileRoad = GreyboxSprites.GetOrCreateTile("Tile_Road",
-                new Color(0.55f, 0.55f, 0.58f), factory.Square);
+                new Color(0.74f, 0.6f, 0.4f), factory.Square);
             var tileBuildable = GreyboxSprites.GetOrCreateTile("Tile_Buildable",
                 new Color(0.35f, 0.55f, 0.65f), factory.Square);
             var tileVillage = GreyboxSprites.GetOrCreateTile("Tile_VillageSlot",
@@ -77,7 +79,9 @@ namespace PMF.EditorTools
                                            string sortingLayer, int order)
         {
             var go = new GameObject(name);
-            go.transform.SetParent(parent);
+            // worldPositionStays 기본값(true) 이면 Grid 의 오프셋(_origin)만큼 반대로 밀려서
+            // 로컬 위치가 어긋난다 — 타일맵은 항상 Grid 기준 로컬 원점(0,0,0) 이어야 한다.
+            go.transform.SetParent(parent, false);
             go.AddComponent<Tilemap>();
             var renderer = go.AddComponent<TilemapRenderer>();
             renderer.sortingLayerName = sortingLayer;
@@ -108,8 +112,17 @@ namespace PMF.EditorTools
             var walletGo = new GameObject("Wallet");
             walletGo.transform.SetParent(sessionGo.transform);
             var session = sessionGo.AddComponent<GameSession>();
+
+            // factory.Stage 가 에셋 임포트 타이밍에 따라 null 이 되는 경우가 있었다 (씬에 미배선으로 저장됨).
+            // 경로에서 다시 읽어 보강하고, 그래도 없으면 조용히 넘어가지 말고 에러로 드러낸다.
+            var stage = factory.Stage != null
+                ? factory.Stage
+                : AssetDatabase.LoadAssetAtPath<StageDefinition>(GreyboxFactory.StageAssetPath);
+            if (stage == null)
+                Debug.LogError($"[SceneParts] StageDefinition 을 찾지 못했다: {GreyboxFactory.StageAssetPath}");
+
             var so = new SerializedObject(session);
-            so.FindProperty("_definition").objectReferenceValue = factory.Stage;
+            so.FindProperty("_definition").objectReferenceValue = stage;
             so.FindProperty("_wallet").objectReferenceValue = walletGo.AddComponent<Wallet>();
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -283,9 +296,19 @@ namespace PMF.EditorTools
             eventSystemGo.AddComponent<EventSystem>();
             eventSystemGo.AddComponent<InputSystemUIInputModule>();
 
-            BuildResourceLabel(canvasGo.transform);
-            BuildHirePanel(canvasGo.transform);
+            BuildHudBottomLeft(canvasGo.transform);
+            var hirePanel = BuildHirePanel(canvasGo.transform);
             BuildResultPanel(canvasGo.transform);
+
+            // DeploymentController 는 Start 에 FindAnyObjectByType 폴백이 있지만,
+            // 인스펙터에 보이는 것이 진실이어야 하므로 여기서 명시 배선한다.
+            var deployment = Object.FindAnyObjectByType<DeploymentController>();
+            if (deployment != null)
+            {
+                var so = new SerializedObject(deployment);
+                so.FindProperty("_hirePanel").objectReferenceValue = hirePanel;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
         }
 
         private static Text MakeText(Transform parent, string name, string content,
@@ -311,25 +334,82 @@ namespace PMF.EditorTools
             return text;
         }
 
-        private static void BuildResourceLabel(Transform canvas)
+        /// <summary>좌하단 고정 HUD — 골드/체력/배속. 사용자 요청으로 좌하단에 모았다 (나머지는 우하단 디버그 오버레이).</summary>
+        private static void BuildHudBottomLeft(Transform canvas)
         {
-            MakeText(canvas, "ResourceLabel", "$ 0",
-                     new Vector2(0f, 1f), new Vector2(0f, 1f),
-                     new Vector2(12f, -36f), new Vector2(220f, -8f),
-                     22, TextAnchor.MiddleLeft);
+            var gold = MakeText(canvas, "ResourceLabel", "$ 0",
+                                Vector2.zero, Vector2.zero,
+                                new Vector2(12f, 12f), new Vector2(220f, 40f),
+                                22, TextAnchor.MiddleLeft);
+            // 라벨 스크립트 부착을 빠뜨리면 텍스트가 "$ 0" 에서 멈춘다 (P-15 DoD).
+            gold.gameObject.AddComponent<UI.ResourceLabel>();
+
+            var hp = MakeText(canvas, "EscorteeHealthLabel", "HP --/--",
+                              Vector2.zero, Vector2.zero,
+                              new Vector2(12f, 44f), new Vector2(220f, 72f),
+                              22, TextAnchor.MiddleLeft);
+            hp.gameObject.AddComponent<UI.EscorteeHealthLabel>();
+
+            var speed = MakeText(canvas, "SpeedLabel", "1x",
+                                 Vector2.zero, Vector2.zero,
+                                 new Vector2(12f, 76f), new Vector2(90f, 104f),
+                                 22, TextAnchor.MiddleLeft);
+            speed.gameObject.AddComponent<UI.SpeedLabel>();
+
+            // 배속은 키보드(Space/1/2/3)로도 되지만 버튼이 없으면 존재를 알기 어렵다 — 클릭 버튼도 같이 둔다.
+            var pauseBtn = MakeButton(canvas, "Btn_Pause", "II",
+                                      new Vector2(94f, 76f), new Vector2(134f, 104f));
+            var speed1Btn = MakeButton(canvas, "Btn_Speed1", "1x",
+                                       new Vector2(138f, 76f), new Vector2(178f, 104f));
+            var speed2Btn = MakeButton(canvas, "Btn_Speed2", "2x",
+                                       new Vector2(182f, 76f), new Vector2(222f, 104f));
+            var speed4Btn = MakeButton(canvas, "Btn_Speed4", "4x",
+                                       new Vector2(226f, 76f), new Vector2(266f, 104f));
+
+            var controlsGo = new GameObject("SpeedControls");
+            controlsGo.transform.SetParent(canvas, false);
+            var controls = controlsGo.AddComponent<UI.SpeedControls>();
+            var so = new SerializedObject(controls);
+            so.FindProperty("_pauseButton").objectReferenceValue = pauseBtn;
+            so.FindProperty("_speed1Button").objectReferenceValue = speed1Btn;
+            so.FindProperty("_speed2Button").objectReferenceValue = speed2Btn;
+            so.FindProperty("_speed4Button").objectReferenceValue = speed4Btn;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void BuildHirePanel(Transform canvas)
+        private static Button MakeButton(Transform parent, string name, string label,
+                                         Vector2 offsetMin, Vector2 offsetMax)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.zero;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
+
+            go.GetComponent<Image>().color = new Color(0.25f, 0.28f, 0.35f);
+
+            MakeText(go.transform, "Label", label, Vector2.zero, Vector2.one,
+                     Vector2.zero, Vector2.zero, 16, TextAnchor.MiddleCenter);
+
+            return go.GetComponent<Button>();
+        }
+
+        private static UI.HirePanel BuildHirePanel(Transform canvas)
         {
             var panelGo = new GameObject("HirePanel", typeof(RectTransform),
                 typeof(CanvasRenderer), typeof(Image));
             panelGo.transform.SetParent(canvas, false);
 
+            // 좌하단 HUD(골드/체력/배속) 스택 바로 위에 뜨도록 배치.
             var rect = (RectTransform)panelGo.transform;
-            rect.anchorMin = new Vector2(0f, 0.5f);
-            rect.anchorMax = new Vector2(0f, 0.5f);
-            rect.pivot = new Vector2(0f, 0.5f);
-            rect.anchoredPosition = new Vector2(16f, 0f);
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(0f, 0f);
+            rect.pivot = new Vector2(0f, 0f);
+            rect.anchoredPosition = new Vector2(16f, 116f);
             rect.sizeDelta = new Vector2(260f, 160f);
 
             panelGo.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.18f, 0.9f);
@@ -343,6 +423,7 @@ namespace PMF.EditorTools
             var so = new SerializedObject(hirePanel);
             so.FindProperty("_buttonRoot").objectReferenceValue = (RectTransform)panelGo.transform;
             so.ApplyModifiedPropertiesWithoutUndo();
+            return hirePanel;
         }
 
         private static Transform FindOrAddChild(this Transform parent, string name)
@@ -350,7 +431,7 @@ namespace PMF.EditorTools
             var found = parent.Find(name);
             if (found != null) return found;
             var go = new GameObject(name);
-            go.transform.SetParent(parent);
+            go.transform.SetParent(parent, false);
             return go.transform;
         }
 
