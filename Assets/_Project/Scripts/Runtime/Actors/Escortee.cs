@@ -40,6 +40,13 @@ namespace PMF.Actors
             if (_session.Definition != null)
                 _speed = _session.Definition.EscorteeSpeed;
 
+            // 체력바 (G-09) — 보호대상은 맞는 순간부터 크게 읽혀야 한다.
+            var barGo = new GameObject("HealthBar");
+            barGo.transform.SetParent(transform, false);
+            barGo.AddComponent<PMF.UI.HealthBar>()
+                .Init(transform, GetComponent<PMF.Combat.Health>(),
+                      _session.Definition != null && _session.Definition.HealthBarHideWhenFull);
+
             _session.RegisterEscortee(this);
 
             _health = GetComponent<Health>();

@@ -26,6 +26,7 @@ namespace PMF.Actors
         private EnemyDefinition _def;
         private Attacker _attacker;
         private PMF.UI.ShotLine _shotLine;
+        private UnityEngine.LineRenderer _threatLine;
         private Health _health;
         private PathNode _spawnNode;
 
@@ -86,6 +87,26 @@ namespace PMF.Actors
                 var flash = gameObject.AddComponent<PMF.UI.HitFlash>();
                 flash.Init(GetComponent<PMF.Combat.Health>(), GetComponent<SpriteRenderer>(),
                            _session.Definition != null ? _session.Definition.HitFlashSeconds : 0.08f);
+
+                // 체력바 (G-09) — 월드 LineRenderer. 만피에는 숨김.
+                var barGo = new GameObject("HealthBar");
+                barGo.transform.SetParent(transform, false);
+                barGo.AddComponent<PMF.UI.HealthBar>()
+                    .Init(transform, GetComponent<PMF.Combat.Health>(),
+                          _session.Definition != null ? _session.Definition.HealthBarHideWhenFull : true);
+
+                // 위협선 (G-09) — 공격 중일 때 대상까지 붉은 계열 선.
+                var threatGo = new GameObject("ThreatLine");
+                threatGo.transform.SetParent(transform, false);
+                _threatLine = threatGo.AddComponent<UnityEngine.LineRenderer>();
+                _threatLine.positionCount = 2;
+                _threatLine.startWidth = _threatLine.endWidth = 0.03f;
+                _threatLine.material = new Material(Shader.Find("Sprites/Default"));
+                _threatLine.sortingLayerName = "Deploy";
+                _threatLine.sortingOrder = 7;
+                _threatLine.useWorldSpace = true;
+                _threatLine.startColor = _threatLine.endColor = new Color(1f, 0.1f, 0.1f, 0.5f);
+                _threatLine.enabled = false;
             }
 
             // D-04 토글: 기본값 false. true 면 상황에 따라 TargetTeam 을 Ally 로 전환 (동작은 비워 둔다).
@@ -159,6 +180,16 @@ namespace PMF.Actors
                     if (distSqr > exitRange * exitRange)
                         _state = State.Moving;
                     break;
+            }
+
+            // 위협선 (G-09) — 공격 중일 때만 대상까지 붉은 선.
+            bool attacking = _state == State.Attacking;
+            if (_threatLine != null && _threatLine.enabled != attacking)
+                _threatLine.enabled = attacking;
+            if (attacking && _threatLine != null)
+            {
+                _threatLine.SetPosition(0, transform.position);
+                _threatLine.SetPosition(1, _escortee.transform.position);
             }
         }
 
