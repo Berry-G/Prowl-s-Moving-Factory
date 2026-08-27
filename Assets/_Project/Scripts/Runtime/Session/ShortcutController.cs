@@ -89,5 +89,17 @@ namespace PMF.Session
                 return;
             }
         }
+
+        /// <summary>
+        /// SelectionController 용 읽기 전용 판정 — 이 위치 근처에 닫힌 지름길 마커가 있으면
+        /// 클릭은 지름길 몫이다 (맵 클릭 입력 우선순위 3, TASKS G-02).
+        /// </summary>
+        public bool IsNearMarker(Vector3 world, float radius)
+        {
+            foreach (var marker in _markers)
+                if (marker != null && !marker.IsOpen && marker.IsNear(world, radius))
+                    return true;
+            return false;
+        }
     }
 }
