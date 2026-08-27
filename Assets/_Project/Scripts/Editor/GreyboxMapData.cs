@@ -26,9 +26,15 @@ namespace PMF.EditorTools
         };
 
         // --- Buildable 사각형들 (비대칭: A 28 > B 12) ---
-        public static readonly RectInt BuildableA = new RectInt(2, 11, 6, 4);
-        public static readonly RectInt BuildableB = new RectInt(10, 6, 4, 3);
-        public static readonly RectInt BuildableC = new RectInt(26, 8, 4, 4);
+        // G-01 (2026-08-27): 근접 병종(고양이 수인) 사거리 1.6 이 경로에 닿으려면 Buildable 이 도로에
+        // **인접(셀 중심 거리 1.0)** 해야 한다. 기존 rects 는 모두 도로에서 2칸 떨어져 있어서
+        // 근접이 경로 전체를 커버하지 못했다 (147 샘플 중 126 미커버 실측). → 도로 쪽으로 확장.
+        // 사거리는 절대 올리지 않는다 (TASKS G-01 확정 처방 ①).
+        public static readonly RectInt BuildableA = new RectInt(2, 10, 6, 5);   // 아래로 확장 — S1 도로(y=9)에 인접
+        public static readonly RectInt BuildableB = new RectInt(9, 5, 7, 4);    // 왼쪽·아래로 확장 — S2(x=8)·S3(y=4)에 인접
+        public static readonly RectInt BuildableC = new RectInt(25, 7, 5, 5);   // 왼쪽·아래로 확장 — S6(x=24)·S7(y=6)에 인접
+        public static readonly RectInt BuildableD = new RectInt(17, 9, 3, 4);   // 신규 — S4(x=16)·S5(y=13)에 인접
+        public static readonly RectInt BuildableE = new RectInt(20, 12, 4, 1);  // 신규 — S5(y=13)·S6(x=24)에 인접
 
         // --- 마을 슬롯 3곳 ---
         public static readonly Vector2Int[] Villages =
@@ -107,7 +113,8 @@ namespace PMF.EditorTools
                 if (v.x == x && v.y == y) return Category.Village;
             if (InRect(Blob1, x, y) || InRect(Blob2, x, y) || InRect(Blob3, x, y))
                 return Category.Blocked;
-            if (InRect(BuildableA, x, y) || InRect(BuildableB, x, y) || InRect(BuildableC, x, y))
+            if (InRect(BuildableA, x, y) || InRect(BuildableB, x, y) || InRect(BuildableC, x, y)
+                || InRect(BuildableD, x, y) || InRect(BuildableE, x, y))
                 return Category.Buildable;
             if (OnRoad(x, y)) return Category.Road;
 
