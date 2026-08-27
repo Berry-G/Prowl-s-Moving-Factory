@@ -13,6 +13,8 @@ namespace PMF.Data
         [SerializeField] private float _attackDamage = 10f;
         [SerializeField] private float _attackInterval = 0.8f;
         [SerializeField] private int _hireCost = 50;
+        [Tooltip("재배치 쿨다운 (초). ADR-0008 B안 — 두 종족 모두 3.0 으로 시작, 종족 차등 금지 (G-03).")]
+        [SerializeField] private float _redeployCooldown = 3f;
         [SerializeField] private GameObject _prefab;
 
         public string DisplayName => _displayName;
@@ -22,6 +24,7 @@ namespace PMF.Data
         public float AttackDamage => _attackDamage;
         public float AttackInterval => _attackInterval;
         public int HireCost => _hireCost;
+        public float RedeployCooldown => _redeployCooldown;
         public GameObject Prefab => _prefab;
     }
 }

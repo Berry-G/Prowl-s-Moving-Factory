@@ -42,6 +42,20 @@ namespace PMF.Actors
 
         public bool IsDeployed => _state == State.Deployed;
 
+        /// <summary>현재 점유 중(또는 행군 목표)인 슬롯. 슬롯 예약 해제(DeploymentController)에 쓴다.</summary>
+        public GridCoord TargetSlot => _targetSlot;
+
+        /// <summary>재배치 쿨다운이 끝났는가 (ADR-0008 B안).</summary>
+        public bool CanRedeployNow => Time.time >= _nextRedeployTime;
+
+        /// <summary>재배치 쿨다운 잔여 시간. 화면 표시용.</summary>
+        public float RedeployCooldownRemaining => Mathf.Max(0f, _nextRedeployTime - Time.time);
+
+        /// <summary>이 유닛이 슬롯을 떠났을 때 (재배치 명령 또는 사망). DeploymentController 가 예약 해제에 쓴다.</summary>
+        public event System.Action<AllyUnit, GridCoord> OnLeftSlot;
+
+        private float _nextRedeployTime;
+
         private void Awake()
         {
             _session = GameSession.Instance;
@@ -112,6 +126,58 @@ namespace PMF.Actors
 
             if (_sprite != null) _sprite.color = _marchingColor;
             UpdateMarchLine();
+        }
+
+        /// <summary>재배치 (ADR-0008). Deployed·Marching 어느 상태에서든 재명령 가능.
+        /// 새 슬롯까지 실제로 걸어간다 (순간이동 금지). 성공하면 이전 슬롯 예약 해제 이벤트를 발행한다.</summary>
+        public bool BeginRedeploy(GridCoord newSlot)
+        {
+            if (_state == State.Queued)
+            {
+                Debug.LogError($"[{nameof(AllyUnit)}] 아직 행군을 시작하지 않은 유닛은 재배치할 수 없다.", this);
+                return false;
+            }
+
+            // 이전 슬롯 예약 해제 — DeploymentController 가 구독해 지운다. (이동·사망 공통 경로)
+            OnLeftSlot?.Invoke(this, _targetSlot);
+
+            // 이동 쿨다운 (ADR-0008 B안) — 명령 시점부터 다음 명령까지.
+            _nextRedeployTime = Time.time + (_def != null ? _def.RedeployCooldown : 3f);
+
+            _targetSlot = newSlot;
+            _state = State.Marching;
+            _marchStartTime = Time.time;
+
+            if (_attacker != null) _attacker.Enabled = false;   // 행군 중 사격 금지 (GDD §8) — 이동의 실질적 비용
+
+            var goalNode = _graph.FindNearestNode(_grid.CellToWorld(newSlot), PathAgent.Ally);
+            if (goalNode == null)
+            {
+                Debug.LogError($"[{nameof(AllyUnit)}] 재배치 목적지 근처 노드 없음: {newSlot}", this);
+                Deploy();
+                return false;
+            }
+
+            // 재배치는 마을 출발이 아니라 "현재 위치"에서 다시 잡는다.
+            // 경로 첫 노드를 현재 위치에서 가장 가까운 노드로 — PathFollower.SetRoute 의 route[0] 근접 규약.
+            var fromNode = _graph.FindNearestNode(transform.position, PathAgent.Ally);
+            if (fromNode == null || !_graph.TryFindRoute(fromNode, goalNode, PathAgent.Ally, _route))
+            {
+                Debug.LogError($"[{nameof(AllyUnit)}] 재배치 경로 탐색 실패: {fromNode} -> {goalNode}", this);
+                Deploy();
+                return false;
+            }
+
+            _onStraightLeg = false;
+            _follower.SetRoute(_route, transform.position);
+
+            // 행군 중 등록 정책 (D-03) — Deployed 동안 켜져 있던 등록을 행군 규칙으로 되돌린다.
+            if (_health != null)
+                _health.SetRegistryEnabled(_stage != null && _stage.AlliesCanDieWhileMarching);
+
+            if (_sprite != null) _sprite.color = _marchingColor;
+            UpdateMarchLine();
+            return true;
         }
 
         private void ConfigureCombat()
@@ -200,6 +266,11 @@ namespace PMF.Actors
             Diagnostics.DebugOverlay.NotifyAllyLostWhileMarching();
 #endif
             }
+
+            // 죽은 자리의 슬롯 예약을 푼다 (이동·사망 공통 해제 경로).
+            if (_state == State.Deployed)
+                OnLeftSlot?.Invoke(this, _targetSlot);
+
             Destroy(gameObject);
         }
 

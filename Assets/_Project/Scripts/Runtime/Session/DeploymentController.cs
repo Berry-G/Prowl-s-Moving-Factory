@@ -21,6 +21,7 @@ namespace PMF.Session
         private Mode _mode = Mode.Idle;
 
         [SerializeField] private UI.HirePanel _hirePanel;
+        [SerializeField] private SelectionController _selection;   // 재배치 명령 대상 (G-03). 비워 두면 Start 에서 찾는다.
 
         private Camera _camera;
         private Village _selectedVillage;
@@ -36,6 +37,8 @@ namespace PMF.Session
             _camera = Camera.main;
             if (_hirePanel == null)
                 _hirePanel = FindAnyObjectByType<UI.HirePanel>();
+            if (_selection == null)
+                _selection = FindAnyObjectByType<SelectionController>();
         }
 
         private void Update()
@@ -63,6 +66,13 @@ namespace PMF.Session
             {
                 case Mode.Idle:
                 case Mode.UnitSelect:
+                    // 입력 우선순위 2)단 세부 규칙 — 클릭 칸이 마을 슬롯이면 고용 흐름이 이긴다.
+                    // 그 외에는 "선택된 유닛이 있으면 재배치 명령"이 고용보다 먼저다 (TASKS G-03).
+                    if (_selection != null && _selection.Selected != null && VillageAt(coord) == null)
+                    {
+                        TryRedeploy(coord, _selection.Selected);
+                        break;
+                    }
                     TryPickVillage(coord);   // 유닛 선택 중에도 다른 마을로 이동 허용
                     break;
                 case Mode.SlotSelect:
@@ -78,24 +88,31 @@ namespace PMF.Session
             return world;
         }
 
-        private void TryPickVillage(GridCoord coord)
+        private Village VillageAt(GridCoord coord)
         {
             var villages = FindObjectsByType<Village>();
             foreach (var village in villages)
             {
                 village.Cache();
-                if (village.SlotCoord != coord) continue;
-
-                _selectedVillage = village;
-                _mode = Mode.UnitSelect;
-                GameClock.Instance?.EnterUiSlowMotion();   // 배치 조작 전체(고용~슬롯 선택)는 정밀 조작이 필요한 UI 취급.
-                ShowHighlights();   // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
-
-                var wallet = GameSession.Instance.Wallet;
-                _hirePanel.Show(village.HireableUnits, wallet, OnUnitPicked);
-                Debug.Log($"[Deployment] 마을 선택: {village.name} {coord}");
-                return;
+                if (village.SlotCoord == coord)
+                    return village;
             }
+            return null;
+        }
+
+        private void TryPickVillage(GridCoord coord)
+        {
+            var village = VillageAt(coord);
+            if (village == null) return;
+
+            _selectedVillage = village;
+            _mode = Mode.UnitSelect;
+            GameClock.Instance?.EnterUiSlowMotion();   // 배치 조작 전체(고용~슬롯 선택)는 정밀 조작이 필요한 UI 취급.
+            ShowHighlights();   // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
+
+            var wallet = GameSession.Instance.Wallet;
+            _hirePanel.Show(village.HireableUnits, wallet, OnUnitPicked);
+            Debug.Log($"[Deployment] 마을 선택: {village.name} {coord}");
         }
 
         private void OnUnitPicked(UnitDefinition unit)
@@ -136,7 +153,11 @@ namespace PMF.Session
             }
 
             var ally = go.GetComponent<AllyUnit>();
-            if (ally != null) ally.BeginMarch(_selectedVillage, _selectedUnit, coord);
+            if (ally != null)
+            {
+                ally.BeginMarch(_selectedVillage, _selectedUnit, coord);
+                ally.OnLeftSlot += HandleLeftSlot;   // 이동·사망 어느 쪽으로 슬롯을 떠나도 예약을 푼다.
+            }
 
             // DoD 로그 형식 준수
             Debug.Log($"Hire: {_selectedUnit.DisplayName} from {_selectedVillage.name} to {coord}");
@@ -152,6 +173,55 @@ namespace PMF.Session
             if (_hirePanel != null) _hirePanel.Hide();
             ClearHighlights();
             GameClock.Instance?.ExitUiSlowMotion();   // 취소/고용 확정 어느 쪽으로 끝나도 여기서 복귀.
+        }
+
+        /// <summary>재배치 명령 (G-03, ADR-0008 B안). 행군 시간 + 쿨다운 3.0초 — 자원은 안 든다.</summary>
+        private void TryRedeploy(GridCoord coord, AllyUnit unit)
+        {
+            if (!unit.CanRedeployNow)
+            {
+                ShowCooldownNotice(unit);
+                return;
+            }
+
+            if (!GridSystem.Instance.IsBuildable(coord) || _reservedSlots.Contains(coord))
+            {
+                Debug.Log("[Redeploy] 배치할 수 없는 칸");
+                return;
+            }
+
+            _reservedSlots.Add(coord);
+            if (!unit.BeginRedeploy(coord))
+            {
+                _reservedSlots.Remove(coord);   // 실패 시 방금 예약을 즉시 되돌린다.
+                return;
+            }
+
+            Debug.Log($"[Redeploy] {unit.name} -> {coord}");
+        }
+
+        /// <summary>쿨다운 중 이동 거부 — 그 사실을 화면에 표시한다 (G-03 DoD).</summary>
+        private void ShowCooldownNotice(AllyUnit unit)
+        {
+            float remain = unit.RedeployCooldownRemaining;
+            Debug.Log($"[Redeploy] 이동 쿨다운 {remain:F1}초 남음");
+
+            var go = new GameObject("RedeployCooldownNotice");
+            go.transform.position = unit.transform.position + Vector3.up * 0.8f;
+            var label = go.AddComponent<TextMesh>();
+            label.text = $"이동 {remain:F1}초 후";
+            label.fontSize = 28;
+            label.characterSize = 0.1f;
+            label.anchor = TextAnchor.MiddleCenter;
+            label.color = Color.yellow;
+            Destroy(go, 1f);
+        }
+
+        private void HandleLeftSlot(AllyUnit unit, GridCoord coord)
+        {
+            // 구독은 풀지 않는다 — 유닛이 살아 있는 한 재배치가 몇 번이고 일어나며,
+            // 유닛이 파괴되면 이 핸들러 참조도 함께 정리된다. (G-03 실측: 풀면 2회째부터 예약 해제 누락)
+            _reservedSlots.Remove(coord);
         }
 
         /// <summary>Buildable && 미예약 칸 하이라이트 (반투명 하늘색 오버레이).</summary>
