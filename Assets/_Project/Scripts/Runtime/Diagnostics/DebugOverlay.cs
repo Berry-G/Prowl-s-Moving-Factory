@@ -19,6 +19,7 @@ namespace PMF.Diagnostics
         private static int _alliesDeployedCount;
         private static int _marchingLosses;
         private static float _marchSecondsSum;
+        private static bool _escorteeInvincible;
 
         private bool _visible = true;
         private readonly StringBuilder _sb = new StringBuilder(256);
@@ -31,6 +32,7 @@ namespace PMF.Diagnostics
             _alliesDeployedCount = 0;
             _marchingLosses = 0;
             _marchSecondsSum = 0f;
+            _escorteeInvincible = false;   // 빠뜨리면 F4 치트가 다음 플레이에서 반대로 동작한다.
         }
 
         internal static void NotifyEnemySpawned() => _enemiesSpawned++;
@@ -79,8 +81,6 @@ namespace PMF.Diagnostics
             Debug.Log($"[Cheat] 보호대상 무적 = {wasInvincible}");
         }
 
-        private static bool _escorteeInvincible;
-
         private void OnGUI()
         {
             if (!_visible) return;
@@ -117,7 +117,10 @@ namespace PMF.Diagnostics
                 _sb.AppendLine("wallet=N/A");
             }
 
-            GUI.Label(new Rect(8f, 8f, 420f, 200f), _sb.ToString());
+            // 골드/체력/배속은 좌하단 HUD 로 옮겼다 — 이 진단 정보는 나머지 UI로 우하단에 둔다.
+            const float width = 420f, height = 200f, margin = 8f;
+            GUI.Label(new Rect(Screen.width - width - margin, Screen.height - height - margin, width, height),
+                      _sb.ToString());
         }
     }
 }

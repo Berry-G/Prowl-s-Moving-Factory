@@ -49,6 +49,20 @@ namespace PMF.UI
 
                 buttonGo.GetComponent<Image>().color = new Color(0.25f, 0.35f, 0.55f);
 
+                // 라벨이 없으면 AffordabilityTint.Bind 가 GetComponentInChildren<Text> 로 못 찾아 글자가 안 보인다.
+                var labelGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                labelGo.transform.SetParent(buttonGo.transform, false);
+                var labelRect = (RectTransform)labelGo.transform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+                var label = labelGo.GetComponent<Text>();
+                label.alignment = TextAnchor.MiddleCenter;
+                label.color = Color.white;
+                label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                label.fontSize = 18;
+
                 var button = buttonGo.GetComponent<Button>();
                 var captured = unit;
                 button.onClick.AddListener(() => _onPicked?.Invoke(captured));
