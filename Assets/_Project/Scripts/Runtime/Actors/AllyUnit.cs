@@ -54,7 +54,23 @@ namespace PMF.Actors
         /// <summary>이 유닛이 슬롯을 떠났을 때 (재배치 명령 또는 사망). DeploymentController 가 예약 해제에 쓴다.</summary>
         public event System.Action<AllyUnit, GridCoord> OnLeftSlot;
 
+        /// <summary>회수되었을 때. 환불액을 전달한다. DeploymentController 가 자원 반환에 쓴다.</summary>
+        public event System.Action<AllyUnit, int> OnRetired;
+
         private float _nextRedeployTime;
+
+        // --- 회수 (G-04) ---
+        private const float RetireFadeDuration = 0.35f;   // 후퇴 연출 길이 — 격파 연출(G-08)과 달라야 한다 (톤 유지)
+        private float _investedAmount;                    // 투입 총액 (고용비 + 업그레이드비) — 환불 기준. G-05 가 누적한다.
+        private bool _retiring;
+        private float _retireTimer;
+        private Vector3 _initialScale;
+
+        /// <summary>이 유닛에 지금까지 투입한 총액 (고용비 + 지불한 업그레이드비).</summary>
+        public int InvestedAmount => Mathf.RoundToInt(_investedAmount);
+
+        /// <summary>회수 시 돌려받는 자원 = 투입 총액 × 환불률 (ADR-0008 확정 기준).</summary>
+        public int RefundAmount => Mathf.FloorToInt(_investedAmount * (_def != null ? _def.RefundRatio : 0.5f));
 
         private void Awake()
         {
@@ -66,6 +82,7 @@ namespace PMF.Actors
             _attacker = GetComponent<Attacker>();
             _sprite = GetComponent<SpriteRenderer>();
             _marchLine = GetComponent<LineRenderer>();
+            _initialScale = transform.localScale;
             if (_marchLine != null) _marchLine.enabled = false;
 
             // 기본은 미등록. BeginMarch(D-03 on) 또는 Deploy 시 등록.
@@ -94,6 +111,7 @@ namespace PMF.Actors
             _targetSlot = slot;
             _state = State.Marching;
             _marchStartTime = Time.time;
+            _investedAmount = definition.HireCost;   // 투입 총액 기록 — 회수 환불 기준 (G-04). 업그레이드비는 G-05 가 누적.
             _stage = _session.Definition;
 
             var goalNode = _graph.FindNearestNode(_grid.CellToWorld(slot), PathAgent.Ally);
@@ -180,6 +198,22 @@ namespace PMF.Actors
             return true;
         }
 
+        /// <summary>회수 (G-04). 행군 중에도 가능. 슬롯 해제 + 레지스트리 해제 + 환불 이벤트 발행 후
+        /// 후퇴 연출(축소+페이드 — 격파와 다른 톤, GDD §8 "사망이 아니라 후퇴/탈진") 뒤 사라진다.</summary>
+        public void Retire()
+        {
+            if (_retiring) return;
+            _retiring = true;
+
+            OnLeftSlot?.Invoke(this, _targetSlot);   // 슬롯 예약 해제 (행군 중이면 목표 슬롯)
+            if (_health != null) _health.SetRegistryEnabled(false);   // TargetRegistry 해제
+            if (_attacker != null) _attacker.Enabled = false;
+            if (_marchLine != null) _marchLine.enabled = false;
+
+            OnRetired?.Invoke(this, RefundAmount);
+            _retireTimer = RetireFadeDuration;
+        }
+
         private void ConfigureCombat()
         {
             if (_attacker == null) return;
@@ -191,6 +225,22 @@ namespace PMF.Actors
 
         private void Update()
         {
+            // 후퇴 연출은 배속·승패와 무관하게 진행된다 (unscaled).
+            if (_retiring)
+            {
+                _retireTimer -= Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(_retireTimer / RetireFadeDuration);
+                if (_sprite != null)
+                {
+                    var c = _sprite.color;
+                    c.a = k;
+                    _sprite.color = c;
+                }
+                transform.localScale = _initialScale * k;   // 축소 = 후퇴/탈진 (사망이 아니다, GDD §8)
+                if (_retireTimer <= 0f) Destroy(gameObject);
+                return;
+            }
+
             if (_session.Result != GameResult.InProgress)
                 return;   // 행군 중에 게임이 끝나면 그대로 멈춘다.
 
@@ -259,6 +309,8 @@ namespace PMF.Actors
 
         private void OnDied(Health health)
         {
+            if (_retiring) return;   // 회수 연출 중 사망 처리 중복 방지
+
             if (_state == State.Marching &&
                 (_stage == null || _stage.AlliesCanDieWhileMarching))
             {

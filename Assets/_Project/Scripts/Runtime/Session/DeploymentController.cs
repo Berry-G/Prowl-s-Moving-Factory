@@ -55,6 +55,15 @@ namespace PMF.Session
                 return;
             }
 
+            // 회수 단축키 (G-04) — 선택된 유닛을 후퇴시키고 투입 총액 × 환불률을 돌려받는다.
+            // 버튼은 G-15 정보 패널에 붙는다 (G-04 작업 4).
+            if (keyboard != null && keyboard.rKey.wasPressedThisFrame
+                && _selection != null && _selection.Selected != null)
+            {
+                _selection.Selected.Retire();
+                return;
+            }
+
             if (!mouse.leftButton.wasPressedThisFrame) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;   // UI 클릭이 맵으로 새는 것을 차단
@@ -157,6 +166,7 @@ namespace PMF.Session
             {
                 ally.BeginMarch(_selectedVillage, _selectedUnit, coord);
                 ally.OnLeftSlot += HandleLeftSlot;   // 이동·사망 어느 쪽으로 슬롯을 떠나도 예약을 푼다.
+                ally.OnRetired += HandleRetired;     // 회수 → 환불 지급 (G-04).
             }
 
             // DoD 로그 형식 준수
@@ -222,6 +232,12 @@ namespace PMF.Session
             // 구독은 풀지 않는다 — 유닛이 살아 있는 한 재배치가 몇 번이고 일어나며,
             // 유닛이 파괴되면 이 핸들러 참조도 함께 정리된다. (G-03 실측: 풀면 2회째부터 예약 해제 누락)
             _reservedSlots.Remove(coord);
+        }
+
+        private void HandleRetired(AllyUnit unit, int refund)
+        {
+            GameSession.Instance.Wallet.Add(refund);
+            Debug.Log($"[Retire] {unit.name} 회수 — 환불 {refund} (투입 {unit.InvestedAmount})");
         }
 
         /// <summary>Buildable && 미예약 칸 하이라이트 (반투명 하늘색 오버레이).</summary>

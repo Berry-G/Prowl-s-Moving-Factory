@@ -15,6 +15,8 @@ namespace PMF.Data
         [SerializeField] private int _hireCost = 50;
         [Tooltip("재배치 쿨다운 (초). ADR-0008 B안 — 두 종족 모두 3.0 으로 시작, 종족 차등 금지 (G-03).")]
         [SerializeField] private float _redeployCooldown = 3f;
+        [Tooltip("회수 환불률. 투입 총액(고용비+업그레이드비) × 이 값. 1.0 이면 배치가 무위험 도박이 된다 (G-04, ADR-0008).")]
+        [SerializeField] private float _refundRatio = 0.5f;
         [SerializeField] private GameObject _prefab;
 
         public string DisplayName => _displayName;
@@ -25,6 +27,7 @@ namespace PMF.Data
         public float AttackInterval => _attackInterval;
         public int HireCost => _hireCost;
         public float RedeployCooldown => _redeployCooldown;
+        public float RefundRatio => _refundRatio;
         public GameObject Prefab => _prefab;
     }
 }
