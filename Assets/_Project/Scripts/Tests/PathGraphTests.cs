@@ -113,15 +113,15 @@ namespace PMF.Tests
         [Test]
         public void Unreachable_ReturnsFalse_EmptyResult()
         {
-            Node(0, 0, isStart: true);
-            Node(5, 5, isExit: true);
-            // 연결 없음 — 고립 노드 검증 로그는 의도된 것 (Id 부여 순서와 무관하게 정규식 매치).
-            var isolated = new System.Text.RegularExpressions.Regex(@"^\[PathGraph\] 고립 노드: Node\d+\(\d+, \d+\)$");
-            LogAssert.Expect(LogType.Error, isolated);
-            LogAssert.Expect(LogType.Error, isolated);
+            var a = Node(0, 0, isStart: true);
+            var b = Node(5, 5, isExit: true);
+            // 단방향 엣지 a→b: 고립 노드가 아니므로 Validate 의 LogError 가 없고,
+            // 그래도 b 에서 a 로는 도달 불가다.
+            // (P-18B 실측: LogAssert.Expect 는 테스트 실패만 막을 뿐 콘솔 로그 파일에는 에러가 그대로 남는다.)
+            Connect(a, b, bidirectional: false);
             Build();
 
-            bool ok = _graph.TryFindRoute(_graph.GetNode(0), _graph.GetNode(1),
+            bool ok = _graph.TryFindRoute(_graph.GetNode(1), _graph.GetNode(0),
                                           PathAgent.All, _result);
             Assert.IsFalse(ok);
             Assert.IsEmpty(_result);

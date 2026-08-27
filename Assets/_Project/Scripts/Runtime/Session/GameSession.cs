@@ -55,6 +55,13 @@ namespace PMF.Session
                 Debug.LogError($"[{nameof(GameSession)}] StageDefinition 또는 Wallet 이 없습니다.", this);
         }
 
+        private void Start()
+        {
+            // UI 슬로우모션 배속은 감각 수치다. 코드 상수 대신 StageDefinition 에서 주입 (P-18B 부채 2).
+            if (_definition != null)
+                GameClock.Instance?.SetUiSlowScale(_definition.UiSlowMotionScale);
+        }
+
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
