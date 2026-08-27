@@ -22,12 +22,16 @@ namespace PMF.Session
 
         [SerializeField] private UI.HirePanel _hirePanel;
         [SerializeField] private SelectionController _selection;   // 재배치 명령 대상 (G-03). 비워 두면 Start 에서 찾는다.
+        [SerializeField] private UI.RangeCircle _hoverRange;       // 배치 전·재배치 목적지 사거리 미리보기 (G-06, 노랑).
 
         private Camera _camera;
         private Village _selectedVillage;
         private UnitDefinition _selectedUnit;
         private readonly HashSet<GridCoord> _reservedSlots = new HashSet<GridCoord>();
         private readonly List<GameObject> _highlights = new List<GameObject>();
+
+        /// <summary>배치 전·재배치 목적지 미리보기 색 — 노랑 (G-06 색 구분).</summary>
+        private static readonly Color PreviewRangeColor = new Color(1f, 0.95f, 0.2f, 0.9f);
 
         public bool IsBusy => _mode != Mode.Idle;
 
@@ -39,6 +43,11 @@ namespace PMF.Session
                 _hirePanel = FindAnyObjectByType<UI.HirePanel>();
             if (_selection == null)
                 _selection = FindAnyObjectByType<SelectionController>();
+            if (_hoverRange == null)
+            {
+                var go = new GameObject("HoverRangeCircle");
+                _hoverRange = go.AddComponent<UI.RangeCircle>();
+            }
         }
 
         private void Update()
@@ -46,6 +55,8 @@ namespace PMF.Session
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
             if (mouse == null) return;
+
+            UpdateRangeHover();   // 사거리 미리보기 (G-06) — 클릭 처리와 무관하게 매 프레임.
 
             // 우클릭 / ESC → 취소
             if ((mouse.rightButton != null && mouse.rightButton.wasPressedThisFrame) ||
@@ -192,6 +203,50 @@ namespace PMF.Session
             if (_hirePanel != null) _hirePanel.Hide();
             ClearHighlights();
             GameClock.Instance?.ExitUiSlowMotion();   // 취소/고용 확정 어느 쪽으로 끝나도 여기서 복귀.
+        }
+
+        /// <summary>재배치 명령 (G-03, ADR-0008 B안). 행군 시간 + 쿨다운 3.0초 — 자원은 안 든다.</summary>
+        /// <summary>배치 전·재배치 목적지 사거리 미리보기 (G-06). 반지름은 Attacker.Range 또는 배치할 정의의 AttackRange.
+        /// 표시 시점 4곳 중 이 컨트롤러가 담당하는 2곳: 고용 슬롯 hover / 재배치 목적지 hover.
+        /// (선택된 유닛의 원은 SelectionController, 고용 패널 버튼 hover 는 G-16 이 담당.)</summary>
+        private void UpdateRangeHover()
+        {
+            if (_hoverRange == null || _camera == null) return;
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            {
+                _hoverRange.Hide();
+                return;
+            }
+
+            var mouse = Mouse.current;
+            Vector3 world = _camera.ScreenToWorldPoint(mouse.position.ReadValue());
+            world.z = 0f;
+            GridCoord coord = GridSystem.Instance.WorldToCell(world);
+
+            // 고용 슬롯 선택 중 — 곧 배치될 유닛의 사거리 미리보기 (노랑).
+            if (_mode == Mode.SlotSelect && _selectedUnit != null)
+            {
+                if (GridSystem.Instance.IsBuildable(coord) && !_reservedSlots.Contains(coord))
+                    _hoverRange.Show(GridSystem.Instance.CellToWorld(coord), _selectedUnit.AttackRange, PreviewRangeColor);
+                else
+                    _hoverRange.Hide();
+                return;
+            }
+
+            // 재배치 목적지 hover — 선택된 유닛의 사거리(티어 반영)를 옮길 자리에 미리보기 (노랑).
+            var selected = _selection != null ? _selection.Selected : null;
+            if (_mode == Mode.Idle && selected != null)
+            {
+                var atk = selected.GetComponent<Combat.Attacker>();
+                if (atk != null && GridSystem.Instance.IsBuildable(coord)
+                    && !_reservedSlots.Contains(coord) && VillageAt(coord) == null)
+                    _hoverRange.Show(GridSystem.Instance.CellToWorld(coord), atk.Range, PreviewRangeColor);
+                else
+                    _hoverRange.Hide();
+                return;
+            }
+
+            _hoverRange.Hide();
         }
 
         /// <summary>재배치 명령 (G-03, ADR-0008 B안). 행군 시간 + 쿨다운 3.0초 — 자원은 안 든다.</summary>

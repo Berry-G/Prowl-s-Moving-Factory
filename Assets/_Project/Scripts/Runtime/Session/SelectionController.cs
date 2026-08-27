@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using PMF.Actors;
+using PMF.Combat;
 using PMF.Grid;
 
 namespace PMF.Session
@@ -22,6 +23,7 @@ namespace PMF.Session
         [SerializeField] private DeploymentController _deployment;
         [SerializeField] private ShortcutController _shortcuts;
         [SerializeField] private UI.SelectionRing _ring;   // 비워 두면 Start 에서 생성
+        [SerializeField] private UI.RangeCircle _range;    // 선택된 유닛의 사거리 원 (G-06). 비워 두면 Start 에서 생성.
 
         private Camera _camera;
         private AllyUnit _selected;
@@ -32,6 +34,9 @@ namespace PMF.Session
 
         /// <summary>선택이 바뀔 때. null = 해제. G-03·G-05·G-15 가 여기 붙는다.</summary>
         public event Action<AllyUnit> OnSelectionChanged;
+
+        /// <summary>선택된 유닛의 사거리 원 색 — 아군 색 (GDD §12 파랑 계열).</summary>
+        private static readonly Color SelectionRangeColor = new Color(0.55f, 0.75f, 1f, 0.9f);
 
         private void Start()
         {
@@ -44,9 +49,18 @@ namespace PMF.Session
                 var go = new GameObject("SelectionRing");
                 _ring = go.AddComponent<UI.SelectionRing>();
             }
+            if (_range == null)
+            {
+                var go = new GameObject("SelectionRangeCircle");
+                _range = go.AddComponent<UI.RangeCircle>();
+            }
         }
 
-        private void OnDisable() => Clear();   // 죽은 참조를 들고 다니지 않는다.
+        private void OnDisable()
+        {
+            Clear();
+            if (_range != null) _range.Hide();
+        }
 
         private void Update()
         {
@@ -59,6 +73,17 @@ namespace PMF.Session
             {
                 Clear();
                 return;
+            }
+
+            // 사거리 원 (G-06) — 반지름은 Attacker.Range (티어 반영). 강화하면 원도 커진다.
+            if (_hasSelection && _range != null)
+            {
+                var atk = _selected.GetComponent<Combat.Attacker>();
+                if (atk != null) _range.Show(_selected.transform.position, atk.Range, SelectionRangeColor);
+            }
+            else if (_range != null)
+            {
+                _range.Hide();
             }
 
             // 1) 일시정지 메뉴 (G-12): 구현되면 이 위에서 게임 입력을 전부 차단한다.
@@ -117,6 +142,7 @@ namespace PMF.Session
             _selected = null;
             _hasSelection = false;
             if (_ring != null) _ring.Bind(null);
+            if (_range != null) _range.Hide();
             OnSelectionChanged?.Invoke(null);
         }
     }
