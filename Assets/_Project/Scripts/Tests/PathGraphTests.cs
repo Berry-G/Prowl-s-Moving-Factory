@@ -115,13 +115,17 @@ namespace PMF.Tests
         {
             var a = Node(0, 0, isStart: true);
             var b = Node(5, 5, isExit: true);
-            // 단방향 엣지 a→b: 고립 노드가 아니므로 Validate 의 LogError 가 없고,
-            // 그래도 b 에서 a 로는 도달 불가다.
-            // (P-18B 실측: LogAssert.Expect 는 테스트 실패만 막을 뿐 콘솔 로그 파일에는 에러가 그대로 남는다.)
+            var c = Node(2, 2);
+            // 단방향 사이클 b↔c + a→b: 모든 노드가 나가는 엣지를 갖는다 → Validate 의 "고립 노드" LogError 가 없고,
+            // 그래도 c 에서 a 로는 도달 불가다.
+            // (P-18B 실측: ① LogAssert.Expect 는 테스트 실패만 막을 뿐 콘솔 로그 파일에는 에러가 그대로 남는다.
+            //  ② 단방향 엣지 하나로는 수신 노드의 Edges 가 비어 고립 판정을 받는다 — PathGraph.Build 는 From 에만 등록.)
             Connect(a, b, bidirectional: false);
+            Connect(b, c, bidirectional: false);
+            Connect(c, b, bidirectional: false);
             Build();
 
-            bool ok = _graph.TryFindRoute(_graph.GetNode(1), _graph.GetNode(0),
+            bool ok = _graph.TryFindRoute(_graph.GetNode(2), _graph.GetNode(0),
                                           PathAgent.All, _result);
             Assert.IsFalse(ok);
             Assert.IsEmpty(_result);
