@@ -2025,7 +2025,16 @@ GDD §13 **D-01**("남겨진 유닛을 어떻게 하나")의 답도 회수가 �
 
 # C. 소리
 
-## `[ ]` G-11. 사운드 최소 세트
+## `[x]` G-11. 사운드 최소 세트 (2026-08-28 완료)
+
+**검증 (CLI 플레이 모드 실측):**
+- `SfxPlayer`(씬 서비스 아님 — `GameSession._sfx` 주입, 자동 탐색) + `ProceduralSfx`(절차 생성: 사인 스윕/구형파/노이즈/금속 하강음, exponential decay 엔벨로프) — **외부 에셋 0개** (ADR-0011 A안)
+- 8종 클립 Awake 1회 생성 (고양이 타격/쥐 발사/로봇 격파/보호대상 피격/고용/배치 완료/승리/패배)
+- `PlayOneShot` 재생 실측 (isPlaying=True), `GameSession._sfx` 자동 와이어링 확인
+- **일시정지 중 새 소리 차단** ✓ (Pause 후 Play → 재생 소스 0)
+- 최소 재생 간격(실시간 기준) + 동시 재생 상한(def 별 maxConcurrent) + 소스 풀 8개 라운드-robin
+- 음소거 M 토글, 전역 볼륨 SO (`StageDefinition._masterVolume`) — G-12 설정 메뉴와 연결 예정
+- 이벤트 연결: HandleFired(종족별)/Enemy.OnDied/Escortee.OnDamaged/고용 확정/Deploy()/EndGame(Pause 직전 — Pause 후 재생 차단 회피)
 
 **선행:** G-10
 **왜:** 사용자: **"가벼운 사운드 정도는 작업해서 넣어봄직하잖아?"**
