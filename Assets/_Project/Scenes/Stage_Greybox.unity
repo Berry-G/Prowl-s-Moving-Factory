@@ -408,6 +408,51 @@ MonoBehaviour:
     Bidirectional: 1
   _isExit: 0
   _isEscorteeStart: 0
+--- !u!1 &80108024
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 80108025}
+  - component: {fileID: 80108026}
+  m_Layer: 0
+  m_Name: SfxPlayer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &80108025
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 80108024}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1561783886}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &80108026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 80108024}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9adea44fd9af8340a6c131934c5bf47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PMF.Runtime::PMF.Audio.SfxPlayer
+  _masterVolume: 1
 --- !u!1 &107476020
 GameObject:
   m_ObjectHideFlags: 0
@@ -1032,6 +1077,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PMF.Runtime::PMF.Session.DeploymentController
   _hirePanel: {fileID: 1696805121}
+  _selection: {fileID: 0}
+  _hoverRange: {fileID: 0}
 --- !u!1 &409451073
 GameObject:
   m_ObjectHideFlags: 0
@@ -4799,6 +4846,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PMF.Runtime::PMF.Session.GameSession
   _definition: {fileID: 11400000, guid: 201c4c3244604bb41b109b1f9a40b4f5, type: 2}
   _wallet: {fileID: 217359836}
+  _sfx: {fileID: 0}
 --- !u!1 &1561783885
 GameObject:
   m_ObjectHideFlags: 0
@@ -4837,6 +4885,7 @@ Transform:
   - {fileID: 588014344}
   - {fileID: 409451074}
   - {fileID: 1749576810}
+  - {fileID: 80108025}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1597662818
@@ -5304,6 +5353,7 @@ MonoBehaviour:
   _deployment: {fileID: 348116557}
   _shortcuts: {fileID: 2117151560}
   _ring: {fileID: 0}
+  _range: {fileID: 0}
 --- !u!1 &1788286688
 GameObject:
   m_ObjectHideFlags: 0

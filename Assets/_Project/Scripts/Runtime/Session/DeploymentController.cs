@@ -171,6 +171,10 @@ namespace PMF.Session
             wallet.TrySpend(cost);
             _reservedSlots.Add(coord);
 
+            // 고용 확정음 (G-11).
+            if (GameSession.Instance != null && GameSession.Instance.Sfx != null)
+                GameSession.Instance.Sfx.Play(Audio.SfxPlayer.SfxId.Hire);
+
             var go = Instantiate(_selectedUnit.Prefab,
                                  _selectedVillage.transform.position, Quaternion.identity);
 

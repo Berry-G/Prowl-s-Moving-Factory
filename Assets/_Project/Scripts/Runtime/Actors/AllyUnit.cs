@@ -148,6 +148,10 @@ namespace PMF.Actors
             bool melee = _attacker != null && _attacker.Range < 3f;
             float seconds = _session.Definition != null ? _session.Definition.ShotLineSeconds : 0.07f;
             _shotLine.Show(transform.position, target, new Color(0.55f, 0.75f, 1f, 0.95f), melee, seconds);
+
+            // 효과음 (G-11) — 종족별로 다르게: 고양이=높고 짧게, 쥐=낮고 약간 길게.
+            if (_session.Sfx != null)
+                _session.Sfx.Play(melee ? Audio.SfxPlayer.SfxId.CatHit : Audio.SfxPlayer.SfxId.RatShot);
         }
 
         private void OnDisable()
@@ -354,6 +358,11 @@ namespace PMF.Actors
 
             // 배치 시점에 등록 (D-03 off 기본).
             if (_health != null) _health.SetRegistryEnabled(true);
+
+            // 배치 완료 확인음 (G-11).
+            if (_session != null && _session.Sfx != null)
+                _session.Sfx.Play(Audio.SfxPlayer.SfxId.DeployDone);
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             Diagnostics.DebugOverlay.NotifyAllyDeployed(Time.time - _marchStartTime);
 #endif

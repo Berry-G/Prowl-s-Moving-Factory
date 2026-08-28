@@ -55,6 +55,7 @@ namespace PMF.Actors
                 _health.Initialize(_session.Definition != null ? _session.Definition.EscorteeMaxHealth : 100f,
                                    Team.Escortee);
                 _health.OnDied += OnDied;
+                _health.OnDamaged += OnDamaged;
             }
 
             // 시작 노드 → 탈출 노드 최초 경로
@@ -79,6 +80,14 @@ namespace PMF.Actors
         {
             if (_graph != null) _graph.OnGraphChanged -= RecalculateRoute;
             if (_health != null) _health.OnDied -= OnDied;
+            if (_health != null) _health.OnDamaged -= OnDamaged;
+        }
+
+        /// <summary>보호대상 피격음 (G-11) — 낮고 둔탁. 다른 소리와 확실히 구분.</summary>
+        private void OnDamaged(Health health, float amount)
+        {
+            if (_session != null && _session.Sfx != null)
+                _session.Sfx.Play(PMF.Audio.SfxPlayer.SfxId.EscorteeHurt);
         }
 
         private void Update()

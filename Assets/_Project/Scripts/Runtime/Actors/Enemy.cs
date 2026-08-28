@@ -227,6 +227,10 @@ namespace PMF.Actors
             var color = sr != null ? sr.color : new Color(0.9f, 0.3f, 0.25f);
             UI.DebrisScatter.Spawn(transform.position, color, count, seconds);
 
+            // 로봇 격파음 (G-11).
+            if (_session != null && _session.Sfx != null)
+                _session.Sfx.Play(Audio.SfxPlayer.SfxId.RobotDown);
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             Diagnostics.DebugOverlay.NotifyEnemyKilled();
 #endif

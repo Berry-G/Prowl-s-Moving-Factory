@@ -15,6 +15,7 @@ namespace PMF.Session
 
         [SerializeField] private StageDefinition _definition;
         [SerializeField] private Wallet _wallet;
+        [SerializeField] private Audio.SfxPlayer _sfx;   // 효과음 창구 (G-11). 비워 두면 Awake 에서 찾는다.
 
         private GameResult _result = GameResult.InProgress;
         private float _elapsedTime;
@@ -24,6 +25,7 @@ namespace PMF.Session
         public float ElapsedTime => _elapsedTime;
         public Wallet Wallet => _wallet;
         public StageDefinition Definition => _definition;
+        public Audio.SfxPlayer Sfx => _sfx;
 
         /// <summary>현재 보호대상. RegisterEscortee 로 등록된다.</summary>
         public Escortee Escortee => _escortee;
@@ -49,10 +51,14 @@ namespace PMF.Session
             TargetRegistry.Clear();
 
             if (_wallet == null) _wallet = GetComponentInChildren<Wallet>();
+            if (_sfx == null) _sfx = FindAnyObjectByType<Audio.SfxPlayer>();
             if (_definition != null && _wallet != null)
                 _wallet.Initialize(_definition.StartingResource, _definition.ResourcePerSecond);
             else
                 Debug.LogError($"[{nameof(GameSession)}] StageDefinition 또는 Wallet 이 없습니다.", this);
+
+            if (_sfx != null && _definition != null)
+                _sfx.SetMasterVolume(_definition.MasterVolume);
         }
 
         private void Start()
@@ -86,7 +92,12 @@ namespace PMF.Session
             if (_result != GameResult.InProgress) return;
 
             _result = result;
-            Debug.Log($"[GameSession] {result} ({_elapsedTime:F1}초)");
+            Debug.Log($"[{nameof(GameSession)}] {result} ({_elapsedTime:F1}초)");
+
+            // 승패음은 Pause(timeScale=0) 적용 전에 — Pause 후에는 재생이 차단된다 (G-11).
+            if (_sfx != null)
+                _sfx.Play(result == GameResult.Victory ? Audio.SfxPlayer.SfxId.Victory
+                                                        : Audio.SfxPlayer.SfxId.Defeat);
 
             GameClock.Instance?.Pause();
             OnGameEnded?.Invoke(result);

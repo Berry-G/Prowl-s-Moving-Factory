@@ -39,6 +39,8 @@ namespace PMF.Data
         [SerializeField] private bool _healthBarHideWhenFull = true;
         [Tooltip("스폰 예고 시간 (초, 게임시간 기준). 스폰 간격에 포함된다 (G-10, GDD §7).")]
         [SerializeField] private float _spawnTelegraphSeconds = 0.6f;
+        [Tooltip("전역 효과음 볼륨 (G-11). 음소거 토글은 SfxPlayer(M 키).")]
+        [SerializeField, Range(0f, 1f)] private float _masterVolume = 1f;
 
         [Header("미결정 토글 (GDD §13)")]
         [SerializeField] private bool _alliesCanDieWhileMarching = false;   // D-03 토글
@@ -66,5 +68,6 @@ namespace PMF.Data
         public float DebrisSeconds => _debrisSeconds;
         public bool HealthBarHideWhenFull => _healthBarHideWhenFull;
         public float SpawnTelegraphSeconds => _spawnTelegraphSeconds;
+        public float MasterVolume => _masterVolume;
     }
 }
