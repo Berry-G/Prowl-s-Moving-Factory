@@ -132,7 +132,11 @@ namespace PMF.EditorTools
             graphGo.AddComponent<PathGraph>();
 
             // 조작/치트 컨트롤러들
+            // ⚠️ 여기서 빠지면 그 기능이 통째로 죽는다. 2026-08-29 에 SelectionController 가 빠져 있어
+            //    씬을 다시 만든 뒤 유닛 선택·이동이 아예 안 됐다 (손으로 붙였던 것이 날아갔다).
+            //    각 컨트롤러는 없는 참조를 Start 에서 스스로 만들지만, 오브젝트 자체는 여기서 만들어야 한다.
             AddSimple<DeploymentController>("DeploymentController");
+            AddSimple<SelectionController>("SelectionController");
             AddSimple<ShortcutController>("ShortcutController");
             AddSimple<Diagnostics.DebugHotkeys>("DebugHotkeys");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

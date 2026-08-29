@@ -153,7 +153,7 @@ namespace PMF.Session
             GameClock.Instance?.EnterUiSlowMotion();   // 배치 조작 전체(고용~슬롯 선택)는 정밀 조작이 필요한 UI 취급.
             // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
             // 기준점은 마을 — 이 마을에서 걸어갈 수 있는 칸만 나온다.
-            ShowHighlights(village.transform.position);
+            ShowHighlights(village.transform.position, village.transform.position);
 
             var wallet = GameSession.Instance.Wallet;
             _hirePanel.Show(village.HireableUnits, wallet, OnUnitPicked, OnUnitHovered);
@@ -304,7 +304,9 @@ namespace PMF.Session
                 ShowCooldownNotice(unit);
                 return;
             }
-            ShowHighlights(unit.transform.position);   // 재배치는 유닛의 현재 위치가 기준이다
+            // 재배치는 유닛의 현재 위치가 기준이고, 막히면 자기 마을을 거쳐 우회한다.
+            Vector3 via = unit.HomeVillage != null ? unit.HomeVillage.transform.position : unit.transform.position;
+            ShowHighlights(unit.transform.position, via);
         }
 
         /// <summary>정보 패널(G-15)의 [업그레이드] 버튼.</summary>
@@ -415,7 +417,7 @@ namespace PMF.Session
         ///
         /// 아군은 도로를 건널 수 없다. 갈 수도 없는 칸을 칠해 놓으면 눌러 보고서야 거절당한다.
         /// 그래서 하이라이트 단계에서 미리 거른다 — 보이는 것이 곧 갈 수 있는 곳이다.</summary>
-        private void ShowHighlights(Vector3 origin)
+        private void ShowHighlights(Vector3 origin, Vector3 via)
         {
             ClearHighlights();
 
@@ -427,7 +429,9 @@ namespace PMF.Session
                     var coord = new GridCoord(x, y);
                     if (grid.GetCell(coord) != CellType.Buildable) continue;
                     if (_reservedSlots.Contains(coord)) continue;
-                    if (!AllyUnit.CanWalk(origin, grid.CellToWorld(coord))) continue;
+                    // 직선이 막혔어도 마을을 거쳐 우회할 수 있으면 갈 수 있는 칸이다.
+                    Vector3 cellWorld = grid.CellToWorld(coord);
+                    if (!AllyUnit.CanWalk(origin, cellWorld) && !AllyUnit.CanWalkVia(origin, cellWorld, via)) continue;
 
                     var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     Destroy(quad.GetComponent<Collider>());   // 물리 미사용 (ADR-0005)
