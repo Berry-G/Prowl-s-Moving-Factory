@@ -19,6 +19,10 @@ namespace PMF.Actors
         /// 더 멀면 직선으로 가로질러 길 밖으로 새므로 경로 재계산에 맡긴다.</summary>
         private const float FinalApproachRange = 2.5f;
 
+        /// <summary>보호대상 뒤에 유지할 최소 간격 = 공격 사거리 × 이 비율.
+        /// 1 보다 작아야 붙어 있는 동안 계속 사거리 안이다.</summary>
+        private const float StandoffRatio = 0.8f;
+
         private readonly PathFollower _follower = new PathFollower();
         private readonly System.Collections.Generic.List<PathNode> _route =
             new System.Collections.Generic.List<PathNode>();
@@ -205,9 +209,21 @@ namespace PMF.Actors
 
         /// <summary>경로를 따라 보호대상 쪽으로 한 걸음. 상태와 무관하게 매 프레임 돈다.</summary>
         /// <summary>보호대상 쪽으로 한 걸음. 상태와 무관하게 매 프레임 돈다.</summary>
+        /// <summary>보호대상 쪽으로 한 걸음. 상태와 무관하게 매 프레임 돈다.</summary>
         private void Chase()
         {
             float step = _def.MoveSpeed * Time.deltaTime;
+
+            // 보호대상을 <b>지나쳐 가지 않는다.</b> 뒤에 붙어서 따라간다.
+            //
+            // 경로 목표는 보호대상이 향하는 노드다(그래야 도로를 따라 올바른 방향으로 간다).
+            // 그런데 그대로 두면 보호대상을 통과해 그 노드까지 달려가 버린다.
+            // 그래서 이번 프레임 이동량을 "보호대상까지 거리 - 최소 간격" 으로 잘라 둔다.
+            // 최소 간격은 사거리보다 짧으므로 붙어 있는 동안 계속 사거리 안이다.
+            float gap = Vector3.Distance(transform.position, _escortee.transform.position);
+            float standoff = _def.AttackRange * StandoffRatio;
+            step = Mathf.Min(step, Mathf.Max(0f, gap - standoff));
+            if (step <= 0f) return;   // 이미 따라붙었다 — 더 다가가지 않는다
 
             if (_follower.HasRoute && !_follower.IsFinished)
             {
@@ -224,16 +240,11 @@ namespace PMF.Actors
                 return;
             }
 
-            // 경로 끝 = 보호대상의 "가장 가까운 노드"에 도착했다는 뜻이다.
-            // 보호대상은 노드 사이를 계속 이동하므로, 노드까지만 가면 영영 닿지 못한다.
-            // 실측(2026-08-29): 최근접 거리가 1.01 에서 멈춰 사거리 1.0 을 못 넘겼고,
-            // 무조작 완주 시 보호대상이 입은 피해가 4 였다.
-            // → 마지막 구간만 실제 위치로 직접 붙는다.
+            // 경로 끝 — 마지막 구간만 실제 위치로 직접 붙는다.
             Vector3 to = _escortee.transform.position - transform.position;
             float distSqr = to.sqrMagnitude;
 
             // 멀리 떨어져 있으면 직선으로 가로지르지 않는다 — 길 밖으로 새는 것을 막는다.
-            // 그때는 경로 재계산에 맡긴다.
             if (distSqr > FinalApproachRange * FinalApproachRange)
             {
                 RecalculateRoute();
