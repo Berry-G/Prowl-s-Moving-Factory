@@ -17,10 +17,44 @@ MonoBehaviour:
   _motherSpeed: 0.8
   _motherSpawnDelay: 5
   _motherSpawnInterval: 3
-  _motherSpawnEnemy: {fileID: 11400000, guid: 9e2bcf7abc73f5e4d99e8d5bdc15f0e0, type: 2}
+  _spawnTable:
+  - _enemy: {fileID: 11400000, guid: 9e2bcf7abc73f5e4d99e8d5bdc15f0e0, type: 2}
+    _weight: 1
+  _enemyHealthByProgress:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   _motherFollowsPath: 1
   _startingResource: 150
   _resourcePerSecond: 8
   _shortcutCost: 120
+  _uiSlowMotionScale: 0.1
+  _shotLineSeconds: 0.07
+  _hitFlashSeconds: 0.08
+  _debrisCount: 5
+  _debrisSeconds: 0.35
+  _healthBarHideWhenFull: 1
+  _spawnTelegraphSeconds: 0.6
+  _masterVolume: 1
   _alliesCanDieWhileMarching: 0
   _enemiesTargetAllies: 0

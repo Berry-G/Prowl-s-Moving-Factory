@@ -29,11 +29,27 @@ namespace PMF.Actors
         private UnityEngine.LineRenderer _threatLine;
         private Health _health;
         private PathNode _spawnNode;
+        private float _healthMultiplier = 1f;
 
-        public void InitializeFromMother(PathNode startNode)
+        /// <param name="definition">이 개체의 정의. 스폰 테이블(G-17)이 종류를 고르므로
+        /// 스테이지 SO 에서 되읽으면 안 된다 — 2종째부터 전부 같은 적이 되어 버린다.</param>
+        /// <param name="healthMultiplier">진행도별 체력 배율 (회의 결정 13).</param>
+        public void InitializeFromMother(PathNode startNode, EnemyDefinition definition, float healthMultiplier = 1f)
         {
             // Start 이전에 호출될 수 있으므로 여기선 데이터만 받아 두고 Start 에서 사용.
             _spawnNode = startNode;
+            _def = definition;
+            _healthMultiplier = Mathf.Max(0.01f, healthMultiplier);
+        }
+
+        /// <summary>모체를 거치지 않고 놓인 적을 위한 폴백. 없으면 null.</summary>
+        private EnemyDefinition FirstFromSpawnTable()
+        {
+            var table = _session.Definition != null ? _session.Definition.SpawnTable : null;
+            if (table == null) return null;
+            for (int i = 0; i < table.Count; i++)
+                if (table[i].Enemy != null) return table[i].Enemy;
+            return null;
         }
 
         private void Start()
@@ -48,7 +64,10 @@ namespace PMF.Actors
             }
 
             _escortee = _session.Escortee;
-            _def = _session.Definition != null ? _session.Definition.MotherSpawnEnemy : null;
+
+            // 정의는 모체가 스폰 시 넘겨준다 (G-17). 씬에 직접 놓인 적처럼 그 경로를 안 탄 개체만
+            // 스폰 테이블 첫 항목으로 대신한다.
+            if (_def == null) _def = FirstFromSpawnTable();
 
             if (_escortee == null || _def == null)
             {
@@ -65,7 +84,7 @@ namespace PMF.Actors
             _health = GetComponent<Health>();
             if (_health != null)
             {
-                _health.Initialize(_def.MaxHealth, Team.Enemy);
+                _health.Initialize(_def.MaxHealth * _healthMultiplier, Team.Enemy);
                 _health.OnDied += OnDied;
             }
 

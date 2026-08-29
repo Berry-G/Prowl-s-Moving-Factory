@@ -14,7 +14,12 @@ namespace PMF.Data
         [SerializeField] private float _motherSpeed = 0.8f;
         [SerializeField] private float _motherSpawnDelay = 5f;
         [SerializeField] private float _motherSpawnInterval = 3f;
-        [SerializeField] private EnemyDefinition _motherSpawnEnemy;
+        [Tooltip("모체가 내보낼 적 목록과 가중치 (G-17). 항목이 하나면 그 하나만 나온다.")]
+        [SerializeField] private SpawnEntry[] _spawnTable = new SpawnEntry[0];
+        [Tooltip("보호대상 진행도(0~1) → 스폰되는 적의 최대 체력 배율 (회의 결정 13).\n" +
+                 "모체와 보호대상 속도가 둘 다 고정이므로 거리는 진행도의 함수다.\n" +
+                 "⚠️ 실시간 거리에 반응시키지 마라 — 고무줄 난이도로 읽힌다.")]
+        [SerializeField] private AnimationCurve _enemyHealthByProgress = AnimationCurve.Constant(0f, 1f, 1f);
         [SerializeField] private bool _motherFollowsPath = true;      // D-06 토글
 
         [Header("자원")]
@@ -52,8 +57,15 @@ namespace PMF.Data
         public float MotherSpeed => _motherSpeed;
         public float MotherSpawnDelay => _motherSpawnDelay;
         public float MotherSpawnInterval => _motherSpawnInterval;
-        public EnemyDefinition MotherSpawnEnemy => _motherSpawnEnemy;
+        public System.Collections.Generic.IReadOnlyList<SpawnEntry> SpawnTable => _spawnTable;
         public bool MotherFollowsPath => _motherFollowsPath;
+
+        /// <summary>진행도(0~1)에 따른 적 체력 배율. 곡선이 비어 있으면 1배.</summary>
+        public float EnemyHealthMultiplierAt(float progress01)
+        {
+            if (_enemyHealthByProgress == null || _enemyHealthByProgress.length == 0) return 1f;
+            return Mathf.Max(0.01f, _enemyHealthByProgress.Evaluate(Mathf.Clamp01(progress01)));
+        }
 
         public int StartingResource => _startingResource;
         public float ResourcePerSecond => _resourcePerSecond;

@@ -215,7 +215,12 @@ namespace PMF.EditorTools
             so.FindProperty("_motherSpeed").floatValue = 0.8f;
             so.FindProperty("_motherSpawnDelay").floatValue = 5f;
             so.FindProperty("_motherSpawnInterval").floatValue = 3f;
-            so.FindProperty("_motherSpawnEnemy").objectReferenceValue = enemyDef;
+            // 스폰 테이블 (G-17). 기본은 1종 × 가중치 1 — 단일 참조였던 기존 동작과 같다.
+            var table = so.FindProperty("_spawnTable");
+            table.arraySize = 1;
+            var entry = table.GetArrayElementAtIndex(0);
+            entry.FindPropertyRelative("_enemy").objectReferenceValue = enemyDef;
+            entry.FindPropertyRelative("_weight").intValue = 1;
             so.FindProperty("_motherFollowsPath").boolValue = true;
             so.FindProperty("_startingResource").intValue = 150;
             so.FindProperty("_resourcePerSecond").floatValue = 8f;

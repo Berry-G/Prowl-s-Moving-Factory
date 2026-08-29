@@ -195,10 +195,10 @@ namespace PMF.Actors
 
         private void SpawnEnemy()
         {
-            var definition = _def.MotherSpawnEnemy;
+            var definition = PickFromSpawnTable();
             if (definition == null || definition.Prefab == null)
             {
-                Debug.LogError($"[{nameof(MotherSpawner)}] MotherSpawnEnemy/Prefab 없음", this);
+                Debug.LogError($"[{nameof(MotherSpawner)}] 스폰 테이블에서 낼 적이 없다 (Prefab 포함 확인)", this);
                 return;
             }
 
@@ -207,10 +207,54 @@ namespace PMF.Actors
 
             var startNode = _graph.FindNearestNode(transform.position, PathAgent.Enemy);
             var enemy = go.GetComponent<Enemy>();
-            if (enemy != null) enemy.InitializeFromMother(startNode);
+            if (enemy != null) enemy.InitializeFromMother(startNode, definition, HealthMultiplier());
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             Diagnostics.DebugOverlay.NotifyEnemySpawned();
 #endif
+        }
+
+        /// <summary>거리로 인한 난이도 차이는 스폰되는 적의 체력으로 조절한다 (회의 결정 13).
+        /// 기준은 <b>보호대상의 진행도</b>다 — 실시간 거리로 하면 고무줄 난이도로 읽힌다.</summary>
+        private float HealthMultiplier()
+        {
+            if (_def == null) return 1f;
+            float progress = _escortee != null && _escortee.Follower.HasRoute
+                ? _escortee.Follower.Progress01
+                : 0f;
+            return _def.EnemyHealthMultiplierAt(progress);
+        }
+
+        /// <summary>가중치 추첨. 시드를 고정하지 않는다 (G-17 작업 2).
+        /// 버스트 전용 테이블은 만들지 않는다 — 테이블은 하나다 (G-17 작업 3).</summary>
+        private EnemyDefinition PickFromSpawnTable()
+        {
+            var table = _def != null ? _def.SpawnTable : null;
+            if (table == null || table.Count == 0)
+            {
+                Debug.LogError($"[{nameof(MotherSpawner)}] 스폰 테이블이 비어 있다 — StageDefinition 을 확인하라", this);
+                return null;
+            }
+
+            int total = 0;
+            for (int i = 0; i < table.Count; i++)
+                if (table[i].Enemy != null && table[i].Weight > 0) total += table[i].Weight;
+
+            if (total <= 0)
+            {
+                Debug.LogError($"[{nameof(MotherSpawner)}] 스폰 테이블의 가중치 합이 0이다 — 아무것도 뽑을 수 없다", this);
+                return null;
+            }
+
+            // Random.Range(int,int) 는 상한 배타 — [0, total) 이 정확히 필요한 범위다.
+            int roll = Random.Range(0, total);
+            for (int i = 0; i < table.Count; i++)
+            {
+                if (table[i].Enemy == null || table[i].Weight <= 0) continue;
+                roll -= table[i].Weight;
+                if (roll < 0) return table[i].Enemy;
+            }
+
+            return null;   // 위 누적이 total 과 일치하므로 도달하지 않는다
         }
     }
 }
