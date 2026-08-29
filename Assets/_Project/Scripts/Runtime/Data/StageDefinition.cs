@@ -56,6 +56,9 @@ namespace PMF.Data
         [SerializeField] private float _uiSlowMotionScale = 0.1f;
         [Tooltip("사격 선 연출 지속 시간 (초, 게임시간 기준). G-07.")]
         [SerializeField] private float _shotLineSeconds = 0.07f;
+        [Tooltip("쥐 수인(마법사) 매직 미사일 비행 속도 (칸/초, 게임시간 기준).\n" +
+                 "피해는 즉시 들어가고 이건 연출 속도다 — 사거리 끝까지 너무 늦게 닿으면 어색하다.")]
+        [SerializeField] private float _magicMissileSpeed = 8f;
 
         [Header("격파 연출 (G-08)")]
         [Tooltip("피격 플래시 지속 시간 (초, 게임시간 기준).")]
@@ -116,6 +119,7 @@ namespace PMF.Data
         public bool EnemiesTargetAllies => _enemiesTargetAllies;
         public float UiSlowMotionScale => _uiSlowMotionScale;
         public float ShotLineSeconds => _shotLineSeconds;
+        public float MagicMissileSpeed => Mathf.Max(0.1f, _magicMissileSpeed);
         public float HitFlashSeconds => _hitFlashSeconds;
         public int DebrisCount => _debrisCount;
         public float DebrisSeconds => _debrisSeconds;

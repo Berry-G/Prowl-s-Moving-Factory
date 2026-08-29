@@ -153,10 +153,24 @@ namespace PMF.Actors
         /// <summary>발사 순간 연출. 근접(고양이)은 짧은 호, 원거리(쥐)는 직선 — 사거리 3 기준 판정 (G-07 현장 결정).</summary>
         private void HandleFired(IDamageable target)
         {
-            if (_shotLine == null || target == null) return;
+            if (target == null) return;
             bool melee = _attacker != null && _attacker.Range < 3f;
-            float seconds = _session.Definition != null ? _session.Definition.ShotLineSeconds : 0.07f;
-            _shotLine.Show(transform.position, target, new Color(0.55f, 0.75f, 1f, 0.95f), melee, seconds);
+            float seconds = _stage != null ? _stage.ShotLineSeconds : 0.07f;
+
+            if (melee)
+            {
+                // 고양이 수인 — 짧은 호. 붙어서 때리는 것이 보여야 한다.
+                if (_shotLine != null)
+                    _shotLine.Show(transform.position, target, new Color(0.55f, 0.75f, 1f, 0.95f), true, seconds);
+            }
+            else
+            {
+                // 쥐 수인은 마법사다 — 직선 대신 매직 미사일이 날아간다.
+                // 피해는 여전히 즉시 들어간다 (매직 미사일은 빗나가지 않는 주문이라 설정과도 맞는다).
+                float speed = _stage != null ? _stage.MagicMissileSpeed : 8f;
+                UI.MagicMissile.Spawn(transform.position, target,
+                                      new Color(0.72f, 0.60f, 1f, 0.95f), speed, transform.parent);
+            }
 
             // 효과음 (G-11) — 종족별로 다르게: 고양이=높고 짧게, 쥐=낮고 약간 길게.
             if (_session.Sfx != null)
