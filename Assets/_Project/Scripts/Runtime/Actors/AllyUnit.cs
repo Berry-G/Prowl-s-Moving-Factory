@@ -179,18 +179,33 @@ namespace PMF.Actors
             _investedAmount = definition.HireCost;   // 투입 총액 기록 — 회수 환불 기준 (G-04). 업그레이드비는 G-05 가 누적.
             _stage = _session.Definition;
 
-            var goalNode = _graph.FindNearestNode(_grid.CellToWorld(slot), PathAgent.Ally);
+            BeginMarchCommon();
+
+            Vector3 slotWorld = _grid.CellToWorld(slot);
+
+            // 막힌 것이 없으면 그래프를 타지 않고 곧장 걸어간다.
+            //
+            // 경로 그래프는 <b>도로</b>다 — 적과 보호대상의 것이다 (ADR-0004).
+            // 아군까지 도로로 우회시키면 마을 바로 옆 칸에 배치하는데도 도로까지 내려갔다
+            // 되돌아온다. 실측(2026-08-29): 직선 1.0칸 목적지를 7.7칸 행군, 마을×배치칸
+            // 291쌍의 평균 우회율 2.23배, 65%가 2배 넘게 돌아갔다.
+            // 아군은 도로에 묶이지 않는다. 막힌 칸만 피하면 된다.
+            if (IsStraightWalkClear(transform.position, slotWorld))
+            {
+                _route.Clear();
+                _follower.Clear();
+                _onStraightLeg = true;
+                UpdateMarchLine();
+                return;
+            }
+
+            var goalNode = _graph.FindNearestNode(slotWorld, PathAgent.Ally);
             if (goalNode == null)
             {
                 Debug.LogError($"[{nameof(AllyUnit)}] 목적지 근처 노드 없음", this);
                 Deploy();
                 return;
             }
-
-            // 행군 목적지 노드가 슬롯에서 너무 멀면 맵 저작 문제 → 경고로 드러낸다.
-            float nodeToSlot = Vector3.Distance(goalNode.WorldPosition, _grid.CellToWorld(slot));
-            if (nodeToSlot > 3f * _grid.CellSize)
-                Debug.LogWarning($"[{nameof(AllyUnit)}] 목적지 노드가 슬롯에서 {nodeToSlot:F1} 셀 — 맵 저작 점검", this);
 
             var fromNode = village.DepartureNode ?? _graph.FindNearestNode(transform.position, PathAgent.Ally);
             if (fromNode == null || !_graph.TryFindRoute(fromNode, goalNode, PathAgent.Ally, _route))
@@ -202,13 +217,31 @@ namespace PMF.Actors
 
             _onStraightLeg = false;
             _follower.SetRoute(_route, transform.position);
+            UpdateMarchLine();
+        }
 
+        /// <summary>행군 시작 시 공통 처리 (등록 정책·색).</summary>
+        private void BeginMarchCommon()
+        {
             // 행군 중 등록 정책 (D-03)
             if (_stage != null && _stage.AlliesCanDieWhileMarching && _health != null)
                 _health.SetRegistryEnabled(true);
 
             if (_sprite != null) _sprite.color = _marchingColor;
-            UpdateMarchLine();
+        }
+
+        /// <summary>두 지점을 잇는 직선이 Blocked 칸을 지나지 않는가.
+        /// 격자 탐색(A*)이 아니다 — 선분 위를 샘플링해 막힌 칸만 확인한다 (ADR-0004 준수).</summary>
+        private bool IsStraightWalkClear(Vector3 from, Vector3 to)
+        {
+            float distance = Vector3.Distance(from, to);
+            int steps = Mathf.CeilToInt(distance / (_grid.CellSize * 0.5f));
+            for (int i = 0; i <= steps; i++)
+            {
+                Vector3 p = Vector3.Lerp(from, to, i / (float)Mathf.Max(steps, 1));
+                if (_grid.GetCell(_grid.WorldToCell(p)) == CellType.Blocked) return false;
+            }
+            return true;
         }
 
         /// <summary>재배치 (ADR-0008). Deployed·Marching 어느 상태에서든 재명령 가능.
@@ -233,7 +266,24 @@ namespace PMF.Actors
 
             if (_attacker != null) _attacker.Enabled = false;   // 행군 중 사격 금지 (GDD §8) — 이동의 실질적 비용
 
-            var goalNode = _graph.FindNearestNode(_grid.CellToWorld(newSlot), PathAgent.Ally);
+            // 행군 중 등록 정책 (D-03) — Deployed 동안 켜져 있던 등록을 행군 규칙으로 되돌린다.
+            if (_health != null)
+                _health.SetRegistryEnabled(_stage != null && _stage.AlliesCanDieWhileMarching);
+            if (_sprite != null) _sprite.color = _marchingColor;
+
+            Vector3 newSlotWorld = _grid.CellToWorld(newSlot);
+
+            // 배치 때와 같은 규칙 — 막힌 것이 없으면 도로로 우회하지 않고 곧장 걸어간다.
+            if (IsStraightWalkClear(transform.position, newSlotWorld))
+            {
+                _route.Clear();
+                _follower.Clear();
+                _onStraightLeg = true;
+                UpdateMarchLine();
+                return true;
+            }
+
+            var goalNode = _graph.FindNearestNode(newSlotWorld, PathAgent.Ally);
             if (goalNode == null)
             {
                 Debug.LogError($"[{nameof(AllyUnit)}] 재배치 목적지 근처 노드 없음: {newSlot}", this);
@@ -253,12 +303,6 @@ namespace PMF.Actors
 
             _onStraightLeg = false;
             _follower.SetRoute(_route, transform.position);
-
-            // 행군 중 등록 정책 (D-03) — Deployed 동안 켜져 있던 등록을 행군 규칙으로 되돌린다.
-            if (_health != null)
-                _health.SetRegistryEnabled(_stage != null && _stage.AlliesCanDieWhileMarching);
-
-            if (_sprite != null) _sprite.color = _marchingColor;
             UpdateMarchLine();
             return true;
         }
@@ -339,14 +383,15 @@ namespace PMF.Actors
                 if (_follower.IsFinished)
                 {
                     _onStraightLeg = true;
-                    // 주석: 마지막 직선 구간은 Blocked 셀을 통과할 수 있다. 프로토타입에서는 허용
-                    // (경로/마을 저작을 잘 하면 드물다). 거리 경고는 BeginMarch 에서 이미 검사.
+                    // 마지막 직선 구간. Blocked 는 BeginMarch 의 직선 판정에서 이미 걸러졌고,
+                    // 그래프를 탄 경우에도 목적지 노드는 슬롯 근처라 짧다.
                 }
             }
             else
             {
                 Vector3 target = _grid.CellToWorld(_targetSlot);
                 transform.position = Vector3.MoveTowards(transform.position, target, step);
+                UpdateMarchLine();   // 두 점짜리 선이라 매 프레임 갱신해도 싸다
                 if ((transform.position - target).sqrMagnitude < 0.0001f)
                     Deploy();
             }
@@ -400,6 +445,18 @@ namespace PMF.Actors
         private void UpdateMarchLine()
         {
             if (_marchLine == null) return;
+
+            // 직선 구간(도로를 타지 않는 행군 / 마지막 다가서기)은 목적지까지 한 줄로 긋는다.
+            if (_onStraightLeg)
+            {
+                if (_state != State.Marching) { _marchLine.enabled = false; return; }
+                _marchLine.positionCount = 2;
+                _marchLine.SetPosition(0, transform.position);
+                _marchLine.SetPosition(1, _grid.CellToWorld(_targetSlot));
+                _marchLine.enabled = true;
+                return;
+            }
+
             if (_follower.IsFinished) { _marchLine.enabled = false; return; }
 
             _follower.FillRemainingNodes(_lineBuffer);
