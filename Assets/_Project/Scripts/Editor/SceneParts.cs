@@ -289,7 +289,13 @@ namespace PMF.EditorTools
             var canvasGo = new GameObject("Canvas");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasGo.AddComponent<CanvasScaler>();
+            // 기본값(Constant Pixel Size)이면 해상도가 바뀔 때 레이아웃이 무너진다 (G-14).
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
             canvasGo.AddComponent<GraphicRaycaster>();
 
             var eventSystemGo = new GameObject("EventSystem");
@@ -299,6 +305,8 @@ namespace PMF.EditorTools
             BuildHudBottomLeft(canvasGo.transform);
             var hirePanel = BuildHirePanel(canvasGo.transform);
             BuildResultPanel(canvasGo.transform);
+            canvasGo.AddComponent<UI.HudTopBar>();   // 상단 HUD 바 (G-14) — 자기 UI 를 스스로 만든다
+            canvasGo.AddComponent<UI.PauseMenu>();   // 일시정지 메뉴 (G-12) — 자기 UI 를 스스로 만든다
 
             // DeploymentController 는 Start 에 FindAnyObjectByType 폴백이 있지만,
             // 인스펙터에 보이는 것이 진실이어야 하므로 여기서 명시 배선한다.
@@ -334,37 +342,22 @@ namespace PMF.EditorTools
             return text;
         }
 
-        /// <summary>좌하단 고정 HUD — 골드/체력/배속. 사용자 요청으로 좌하단에 모았다 (나머지는 우하단 디버그 오버레이).</summary>
+        /// <summary>좌하단 조작부 — 배속 버튼 4개. 수치 표시는 상단 바(G-14)가 맡는다.</summary>
         private static void BuildHudBottomLeft(Transform canvas)
         {
-            var gold = MakeText(canvas, "ResourceLabel", "$ 0",
-                                Vector2.zero, Vector2.zero,
-                                new Vector2(12f, 12f), new Vector2(220f, 40f),
-                                22, TextAnchor.MiddleLeft);
-            // 라벨 스크립트 부착을 빠뜨리면 텍스트가 "$ 0" 에서 멈춘다 (P-15 DoD).
-            gold.gameObject.AddComponent<UI.ResourceLabel>();
-
-            var hp = MakeText(canvas, "EscorteeHealthLabel", "HP --/--",
-                              Vector2.zero, Vector2.zero,
-                              new Vector2(12f, 44f), new Vector2(220f, 72f),
-                              22, TextAnchor.MiddleLeft);
-            hp.gameObject.AddComponent<UI.EscorteeHealthLabel>();
-
-            var speed = MakeText(canvas, "SpeedLabel", "1x",
-                                 Vector2.zero, Vector2.zero,
-                                 new Vector2(12f, 76f), new Vector2(90f, 104f),
-                                 22, TextAnchor.MiddleLeft);
-            speed.gameObject.AddComponent<UI.SpeedLabel>();
-
+            // 골드·체력·배속 "표시"는 상단 바(G-14, UI.HudTopBar)로 올라갔다.
+            // 여기 좌하단에는 **조작부만** 남긴다 — 정보 위계를 만드는 것이 G-14 의 요점이다.
+            //
             // 배속은 키보드(Space/1/2/3)로도 되지만 버튼이 없으면 존재를 알기 어렵다 — 클릭 버튼도 같이 둔다.
+            // ⚠️ 이름을 "Btn_Pause" 에서 바꾸지 마라. 우상단 일시정지 메뉴 버튼은 "Btn_PauseMenu" 로 따로 있다.
             var pauseBtn = MakeButton(canvas, "Btn_Pause", "II",
-                                      new Vector2(94f, 76f), new Vector2(134f, 104f));
+                                      new Vector2(12f, 12f), new Vector2(52f, 44f));
             var speed1Btn = MakeButton(canvas, "Btn_Speed1", "1x",
-                                       new Vector2(138f, 76f), new Vector2(178f, 104f));
+                                       new Vector2(56f, 12f), new Vector2(96f, 44f));
             var speed2Btn = MakeButton(canvas, "Btn_Speed2", "2x",
-                                       new Vector2(182f, 76f), new Vector2(222f, 104f));
+                                       new Vector2(100f, 12f), new Vector2(140f, 44f));
             var speed4Btn = MakeButton(canvas, "Btn_Speed4", "4x",
-                                       new Vector2(226f, 76f), new Vector2(266f, 104f));
+                                       new Vector2(144f, 12f), new Vector2(184f, 44f));
 
             var controlsGo = new GameObject("SpeedControls");
             controlsGo.transform.SetParent(canvas, false);
@@ -404,12 +397,12 @@ namespace PMF.EditorTools
                 typeof(CanvasRenderer), typeof(Image));
             panelGo.transform.SetParent(canvas, false);
 
-            // 좌하단 HUD(골드/체력/배속) 스택 바로 위에 뜨도록 배치.
+            // 좌하단 조작부(배속 버튼) 바로 위에 뜨도록 배치.
             var rect = (RectTransform)panelGo.transform;
             rect.anchorMin = new Vector2(0f, 0f);
             rect.anchorMax = new Vector2(0f, 0f);
             rect.pivot = new Vector2(0f, 0f);
-            rect.anchoredPosition = new Vector2(16f, 116f);
+            rect.anchoredPosition = new Vector2(16f, 56f);
             rect.sizeDelta = new Vector2(260f, 160f);
 
             panelGo.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.18f, 0.9f);

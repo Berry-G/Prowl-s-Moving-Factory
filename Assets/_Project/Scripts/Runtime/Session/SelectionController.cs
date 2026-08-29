@@ -68,6 +68,9 @@ namespace PMF.Session
             var keyboard = Keyboard.current;
             if (mouse == null) return;
 
+            // 입력 우선순위 1단계 — 일시정지 메뉴가 떠 있으면 게임 입력 전부 차단 (G-02/G-12).
+            if (PMF.UI.PauseMenu.IsOpen) return;
+
             // 선택된 유닛이 죽어 파괴되었으면 해제한다 (파괴된 참조는 Unity null 로 평가된다).
             if (_hasSelection && _selected == null)
             {

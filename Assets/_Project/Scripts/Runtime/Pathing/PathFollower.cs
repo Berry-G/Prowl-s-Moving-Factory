@@ -82,7 +82,7 @@ namespace PMF.Pathing
             if (!HasRoute || _finished || distance <= 0f) return false;
 
             bool passedAny = false;
-            // 무한루프 방어: 반복 상한 (경로 길이 + 버퍼). 길이 0 엣지( 같은셀노드2개) 대비.
+            // 무한루프 방어: 반복 상한 (경로 길이 + 버퍼). 길이 0 엣지(같은 셀에 노드 2개) 대비.
             int guard = _route.Count + 2;
 
             while (distance > 0f && !_finished && guard-- > 0)

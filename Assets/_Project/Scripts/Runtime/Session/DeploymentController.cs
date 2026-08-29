@@ -35,6 +35,12 @@ namespace PMF.Session
 
         public bool IsBusy => _mode != Mode.Idle;
 
+        private int _cancelFrame = -1;
+
+        /// <summary>이번 프레임에 Esc·우클릭으로 배치를 취소했는가.
+        /// 일시정지 메뉴(G-12)가 같은 Esc 를 이어받아 열리는 것을 막는다.</summary>
+        public bool CancelledThisFrame => _cancelFrame == Time.frameCount;
+
         private void Start()
         {
             // Awake 캐시 원칙 — Start 에서 한 번만 찾는다.
@@ -56,12 +62,19 @@ namespace PMF.Session
             var mouse = Mouse.current;
             if (mouse == null) return;
 
+            // 입력 우선순위 1단계 — 일시정지 메뉴가 떠 있으면 게임 입력 전부 차단 (G-02/G-12).
+            if (PMF.UI.PauseMenu.IsOpen) return;
+
             UpdateRangeHover();   // 사거리 미리보기 (G-06) — 클릭 처리와 무관하게 매 프레임.
 
             // 우클릭 / ESC → 취소
             if ((mouse.rightButton != null && mouse.rightButton.wasPressedThisFrame) ||
                 (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))
             {
+                // 배치 중이었다면 이 Esc 는 여기서 소비된 것이다. 스크립트 실행 순서가 정해져 있지 않아
+                // PauseMenu 가 나중에 IsBusy 를 읽으면 이미 false 라서 같은 Esc 로 메뉴까지 열린다.
+                // 그래서 "이번 프레임에 취소했다"를 남긴다 (G-02 입력 우선순위 / G-12).
+                if (IsBusy) _cancelFrame = Time.frameCount;
                 Cancel();
                 return;
             }
@@ -95,7 +108,7 @@ namespace PMF.Session
             {
                 case Mode.Idle:
                 case Mode.UnitSelect:
-                    // 입력 우선순위 2)단 세부 규칙 — 클릭 칸이 마을 슬롯이면 고용 흐름이 이긴다.
+                    // 입력 우선순위 2단계 세부 규칙 — 클릭 칸이 마을 슬롯이면 고용 흐름이 이긴다.
                     // 그 외에는 "선택된 유닛이 있으면 재배치 명령"이 고용보다 먼저다 (TASKS G-03).
                     if (_selection != null && _selection.Selected != null && VillageAt(coord) == null)
                     {

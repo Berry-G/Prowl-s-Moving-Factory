@@ -79,6 +79,20 @@ namespace PMF.Audio
         /// <summary>마스터 볼륨 (StageDefinition 전역 볼륨 × 개별 volume). G-12 설정 메뉴가 쓴다.</summary>
         public void SetMasterVolume(float volume) => _masterVolume = Mathf.Clamp01(volume);
 
+        /// <summary>현재 마스터 볼륨 — G-12 슬라이더 초기값.</summary>
+        public float MasterVolume => _masterVolume;
+
+        /// <summary>음소거 상태 — G-12 토글 표시용.</summary>
+        public bool IsMuted => _muted;
+
+        public void ToggleMute() => SetMuted(!_muted);
+
+        public void SetMuted(bool muted)
+        {
+            _muted = muted;
+            Debug.Log($"[Sfx] 음소거: {_muted}");
+        }
+
         public void Play(SfxId id)
         {
             if (_muted) return;

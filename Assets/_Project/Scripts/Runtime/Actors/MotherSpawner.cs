@@ -32,6 +32,22 @@ namespace PMF.Actors
         private UI.SpawnTelegraph _telegraph;
         private bool _telegraphActive;
 
+        /// <summary>아직 활동 전(첫 스폰 유예 중)인가. HUD 보조 정보용 (G-14).</summary>
+        public bool IsIdle => _state == State.Idle;
+
+        /// <summary>다음 스폰까지 남은 게임시간(초).
+        /// 유예 중이면 활동 시작까지 남은 시간을 준다. HUD 보조 정보용 (G-14).</summary>
+        public float SecondsToNextSpawn
+        {
+            get
+            {
+                if (_def == null) return 0f;
+                return _state == State.Chasing
+                    ? Mathf.Max(_def.MotherSpawnInterval - _stateTimer, 0f)
+                    : Mathf.Max(_stateTimer, 0f);
+            }
+        }
+
         private void Start()
         {
             _session = GameSession.Instance;
