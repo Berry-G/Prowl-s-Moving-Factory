@@ -15,6 +15,10 @@ namespace PMF.Actors
     {
         private enum State { Moving, Attacking }
 
+        /// <summary>이 거리 안에서만 경로를 벗어나 보호대상 실제 위치로 직접 붙는다.
+        /// 더 멀면 직선으로 가로질러 길 밖으로 새므로 경로 재계산에 맡긴다.</summary>
+        private const float FinalApproachRange = 2.5f;
+
         private readonly PathFollower _follower = new PathFollower();
         private readonly System.Collections.Generic.List<PathNode> _route =
             new System.Collections.Generic.List<PathNode>();
@@ -167,39 +171,26 @@ namespace PMF.Actors
 
             float distSqr = (_escortee.transform.position - transform.position).sqrMagnitude;
             float range = _def.AttackRange;
+            float exitRange = range * 1.2f;   // 이탈 사거리 — 매 프레임 Moving/Attacking 토글 방지
 
-            switch (_state)
+            if (_state == State.Moving)
             {
-                case State.Moving:
-                    if (distSqr <= range * range)
-                    {
-                        _state = State.Attacking;      // 사거리 진입
-                        break;
-                    }
-                    if (!_follower.HasRoute || _follower.IsFinished)
-                    {
-                        RecalculateRoute();            // 도달했는데 사거리 밖 → 재계산
-                        break;
-                    }
-                    if (_follower.Advance(_def.MoveSpeed * Time.deltaTime))
-                    {
-                        // 자신이 노드를 통과 → 재계산 트리거 3번
-                        transform.position = _follower.Position;
-                        RecalculateRoute();
-                    }
-                    else
-                    {
-                        transform.position = _follower.Position;
-                    }
-                    break;
-
-                case State.Attacking:
-                    // 이탈 = Range * 1.2 — 매 프레임 Moving/Attacking 토글 방지.
-                    float exitRange = range * 1.2f;
-                    if (distSqr > exitRange * exitRange)
-                        _state = State.Moving;
-                    break;
+                if (distSqr <= range * range) _state = State.Attacking;
             }
+            else if (distSqr > exitRange * exitRange)
+            {
+                _state = State.Moving;
+            }
+
+            // ⚠️ 사거리 안에 들어도 <b>멈추지 않고 계속 따라붙는다.</b>
+            //
+            // 멈춰 서서 쏘면 보호대상(1.2/초)이 그대로 도망쳐 버린다. 이탈 사거리가 Range×1.2 뿐이라
+            // 진입 후 0.2초도 못 되어 다시 이탈하고, 공격 간격(1초)이 채워지기 전에 사거리를 벗어난다.
+            // 그 결과 사거리 경계에서 진입/이탈만 반복하며 한 판에 한 대 맞히는 게 고작이었다.
+            // 2026-08-29 실측: 무조작 완주 시 보호대상이 입은 피해 4 (최근접 거리 1.01, 접촉 시간 0초).
+            //
+            // 물리 엔진을 쓰지 않으므로 겹쳐도 문제없다 (ADR-0005). 블로킹 금지(ADR-0003)는 아군 규칙이다.
+            Chase();
 
             // 위협선 (G-09) — 공격 중일 때만 대상까지 붉은 선.
             bool attacking = _state == State.Attacking;
@@ -212,6 +203,49 @@ namespace PMF.Actors
             }
         }
 
+        /// <summary>경로를 따라 보호대상 쪽으로 한 걸음. 상태와 무관하게 매 프레임 돈다.</summary>
+        /// <summary>보호대상 쪽으로 한 걸음. 상태와 무관하게 매 프레임 돈다.</summary>
+        private void Chase()
+        {
+            float step = _def.MoveSpeed * Time.deltaTime;
+
+            if (_follower.HasRoute && !_follower.IsFinished)
+            {
+                if (_follower.Advance(step))
+                {
+                    // 자신이 노드를 통과 → 경로 재계산 트리거 3번
+                    transform.position = _follower.Position;
+                    RecalculateRoute();
+                }
+                else
+                {
+                    transform.position = _follower.Position;
+                }
+                return;
+            }
+
+            // 경로 끝 = 보호대상의 "가장 가까운 노드"에 도착했다는 뜻이다.
+            // 보호대상은 노드 사이를 계속 이동하므로, 노드까지만 가면 영영 닿지 못한다.
+            // 실측(2026-08-29): 최근접 거리가 1.01 에서 멈춰 사거리 1.0 을 못 넘겼고,
+            // 무조작 완주 시 보호대상이 입은 피해가 4 였다.
+            // → 마지막 구간만 실제 위치로 직접 붙는다.
+            Vector3 to = _escortee.transform.position - transform.position;
+            float distSqr = to.sqrMagnitude;
+
+            // 멀리 떨어져 있으면 직선으로 가로지르지 않는다 — 길 밖으로 새는 것을 막는다.
+            // 그때는 경로 재계산에 맡긴다.
+            if (distSqr > FinalApproachRange * FinalApproachRange)
+            {
+                RecalculateRoute();
+                return;
+            }
+
+            if (distSqr > step * step) transform.position += to.normalized * step;
+
+            // 사거리 안이면 새로 계산할 경로가 없다 — 매 프레임 Dijkstra 를 막는다.
+            if (distSqr > _def.AttackRange * _def.AttackRange) RecalculateRoute();
+        }
+
         /// <summary>목적지 = 보호대상의 현재 노드.</summary>
         private void RecalculateRoute()
         {
@@ -219,7 +253,15 @@ namespace PMF.Actors
             if (from == null)
                 from = _graph.FindNearestNode(transform.position, PathAgent.Enemy);
 
-            var goal = _escortee.CurrentNode
+            // ⚠️ 보호대상의 "현재 노드"를 목표로 삼으면 영원히 못 잡는다.
+            // 현재 노드는 <b>이미 지나온</b> 노드다. 엣지가 9칸짜리도 있어서 목표가 보호대상보다
+            // 최대 반 엣지(4.5칸) 뒤에 찍히고, 적은 그 지점으로 수렴한 뒤 다시 벌어진다.
+            // 실측(2026-08-29): 거리가 3.2 까지만 줄고 되레 멀어졌으며, 무조작 완주 피해가 0~4 였다.
+            //
+            // → 보호대상이 <b>향하는 노드</b>를 목표로 삼는다. 그러면 적의 도로 경로가 보호대상의
+            //   현재 위치를 지나가므로 도중에 자연히 사거리 안에 들어온다. 길 밖으로 새지도 않는다.
+            var goal = _escortee.Follower.NextNode
+                       ?? _escortee.CurrentNode
                        ?? _graph.FindNearestNode(_escortee.transform.position, PathAgent.Enemy);
             if (from == null || goal == null) return;
 
