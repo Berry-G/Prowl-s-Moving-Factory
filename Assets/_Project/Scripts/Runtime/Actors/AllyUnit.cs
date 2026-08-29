@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using PMF.Combat;
 using PMF.Data;
@@ -17,15 +18,9 @@ namespace PMF.Actors
         private enum State { Queued, Marching, Deployed }
 
         private State _state = State.Queued;
-        private readonly PathFollower _follower = new PathFollower();
-        private readonly System.Collections.Generic.List<PathNode> _route =
-            new System.Collections.Generic.List<PathNode>();
-        private readonly System.Collections.Generic.List<PathNode> _lineBuffer =
-            new System.Collections.Generic.List<PathNode>();
 
         private GameSession _session;
         private GridSystem _grid;
-        private PathGraph _graph;
         private UnitDefinition _def;
         private StageDefinition _stage;
         private Health _health;
@@ -35,10 +30,9 @@ namespace PMF.Actors
         private UI.ShotLine _shotLine;
 
         private GridCoord _targetSlot;
-        private Village _homeVillage;      // 재배치 때 도로를 우회하는 경유점
-        private Vector3 _wayPoint;         // 목적지 전에 먼저 들르는 지점
-        private bool _hasWayPoint;
-        private bool _onStraightLeg;          // 마지막 노드 → 슬롯 직선 구간
+        private Village _homeVillage;
+        private readonly List<Vector3> _walkPath = new List<Vector3>();   // 도로·장애물을 피해 도는 경유점들
+        private int _walkIndex;
         private float _marchStartTime;
 
         [SerializeField] private Color _marchingColor = new Color(0.55f, 0.75f, 1f);   // 연한 파랑
@@ -121,7 +115,6 @@ namespace PMF.Actors
         {
             _session = GameSession.Instance;
             _grid = GridSystem.Instance;
-            _graph = PathGraph.Instance;
 
             _health = GetComponent<Health>();
             _attacker = GetComponent<Attacker>();
@@ -186,13 +179,12 @@ namespace PMF.Actors
             if (_attacker != null) _attacker.OnFired -= HandleFired;
         }
 
-        /// <summary>고용 확정 즉시 호출. village.DepartureNode 에서 slot 까지 걷는다.</summary>
+        /// <summary>고용 확정 즉시 호출. 마을에서 slot 까지 도로·장애물을 피해 걷는다.</summary>
         public void BeginMarch(Village village, UnitDefinition definition, GridCoord slot)
         {
             _def = definition;
             _targetSlot = slot;
             _homeVillage = village;
-            _hasWayPoint = false;
             _state = State.Marching;
             _marchStartTime = Time.time;
             _investedAmount = definition.HireCost;   // 투입 총액 기록 — 회수 환불 기준 (G-04). 업그레이드비는 G-05 가 누적.
@@ -200,23 +192,7 @@ namespace PMF.Actors
 
             BeginMarchCommon();
 
-            Vector3 slotWorld = _grid.CellToWorld(slot);
-
-            // 막힌 것이 없으면 그래프를 타지 않고 곧장 걸어간다.
-            //
-            // 경로 그래프는 <b>도로</b>다 — 적과 보호대상의 것이다 (ADR-0004).
-            // 아군까지 도로로 우회시키면 마을 바로 옆 칸에 배치하는데도 도로까지 내려갔다
-            // 되돌아온다. 실측(2026-08-29): 직선 1.0칸 목적지를 7.7칸 행군, 마을×배치칸
-            // 291쌍의 평균 우회율 2.23배, 65%가 2배 넘게 돌아갔다.
-            // 아군은 도로에 묶이지 않는다. 막힌 칸만 피하면 된다.
-            if (IsStraightWalkClear(transform.position, slotWorld))
-            {
-                _route.Clear();
-                _follower.Clear();
-                _onStraightLeg = true;
-                UpdateMarchLine();
-                return;
-            }
+            if (SetWalkPath(_grid.CellToWorld(slot))) return;
 
             // 여기에 오면 도로나 벽이 가로막은 것이다. 아군은 도로를 건널 수 없으므로 갈 방법이 없다.
             // 도로 그래프로 우회시키지 않는다 — 그게 바로 "길을 건너는" 행위다.
@@ -244,7 +220,22 @@ namespace PMF.Actors
         /// 격자 탐색(A*)이 아니다 — 선분 위를 샘플링해 막힌 칸만 확인한다 (ADR-0004 준수).
         /// 맵은 "마을에서 자기 담당 사각형 안 어느 칸으로도 직선이 닿는다"를 만족하도록 설계되어 있다
         /// (GreyboxMapData 참조). 그래서 우회 경로 탐색이 애초에 필요 없다.</summary>
-        private bool IsStraightWalkClear(Vector3 from, Vector3 to) => CanWalk(from, to);
+        /// <summary>목적지까지 걸어갈 경로를 잡는다. 직선이 뚫려 있으면 그 한 구간,
+        /// 막혀 있으면 도로·장애물의 모서리를 도는 경유점들이 들어온다. 못 가면 false.</summary>
+        private bool SetWalkPath(Vector3 target)
+        {
+            _walkIndex = 0;
+
+            if (!AllyWalkGraph.TryFindPath(transform.position, target, _walkPath))
+            {
+                _walkPath.Clear();
+                return false;
+            }
+
+            UpdateMarchLine();
+            return true;
+        }
+
 
         /// <summary>아군이 <paramref name="from"/> 에서 <paramref name="to"/> 까지 걸어갈 수 있는가.
         /// 배치·재배치를 받아들일지 판단할 때 DeploymentController 도 이걸 쓴다.</summary>
@@ -264,26 +255,21 @@ namespace PMF.Actors
             return true;
         }
 
-        /// <summary>이 유닛을 고용한 마을. 직선이 막혔을 때 경유점으로 쓴다.</summary>
+        /// <summary>이 유닛을 고용한 마을.</summary>
         public Village HomeVillage => _homeVillage;
 
-        /// <summary>이 위치에서 목적지 칸까지 아군이 갈 수 있는가 (직선 또는 마을 경유).
+        /// <summary>이 위치에서 목적지 칸까지 아군이 갈 수 있는가.
+        /// 직선이 막혀도 도로·장애물을 <b>돌아서</b> 갈 수 있으면 갈 수 있는 것이다.
         /// DeploymentController 가 배치·재배치를 받아들일지 판단할 때 쓴다.</summary>
-        public bool CanWalkTo(GridCoord slot)
-        {
-            Vector3 to = _grid.CellToWorld(slot);
-            if (CanWalk(transform.position, to)) return true;
-            return _homeVillage != null && CanWalkVia(transform.position, to, _homeVillage.transform.position);
-        }
+        public bool CanWalkTo(GridCoord slot) => CanReach(transform.position, _grid.CellToWorld(slot));
 
-        /// <summary>직선이 막히면 <paramref name="via"/> 를 한 번 거쳐서 갈 수 있는가.
-        ///
-        /// 격자 탐색을 도입하지 않고 도로를 우회하는 방법이다 (ADR-0004 유지).
-        /// 맵이 "마을에서 자기 구역 안 어느 칸으로도 직선이 닿는다"를 보장하므로,
-        /// 같은 구역 안의 두 지점은 <b>마을을 한 번 거치면 반드시 이어진다.</b>
-        /// 최단은 아니지만 도로를 밟지 않는다 — 직선이 뚫려 있으면 그쪽이 먼저다.</summary>
-        public static bool CanWalkVia(Vector3 from, Vector3 to, Vector3 via)
-            => CanWalk(from, via) && CanWalk(via, to);
+        /// <summary>도로·장애물을 피해 갈 수 있는가 (우회 포함).</summary>
+        public static bool CanReach(Vector3 from, Vector3 to)
+        {
+            if (CanWalk(from, to)) return true;
+            var scratch = new List<Vector3>();
+            return AllyWalkGraph.TryFindPath(from, to, scratch);
+        }
 
         /// <summary>재배치 (ADR-0008). Deployed·Marching 어느 상태에서든 재명령 가능.
         /// 새 슬롯까지 실제로 걸어간다 (순간이동 금지). 성공하면 이전 슬롯 예약 해제 이벤트를 발행한다.</summary>
@@ -312,28 +298,7 @@ namespace PMF.Actors
                 _health.SetRegistryEnabled(_stage != null && _stage.AlliesCanDieWhileMarching);
             if (_sprite != null) _sprite.color = _marchingColor;
 
-            Vector3 newSlotWorld = _grid.CellToWorld(newSlot);
-            _route.Clear();
-            _follower.Clear();
-            _onStraightLeg = true;
-
-            // 1) 곧장 갈 수 있으면 최단으로 간다.
-            if (CanWalk(transform.position, newSlotWorld))
-            {
-                _hasWayPoint = false;
-                UpdateMarchLine();
-                return true;
-            }
-
-            // 2) 도로가 가로막으면 <b>도로를 피해서</b> 마을을 한 번 거쳐 돌아간다.
-            //    격자 탐색을 쓰지 않는다 — 맵이 "마을 ↔ 자기 구역 전 칸" 직선을 보장하므로 이 한 번이면 된다.
-            if (_homeVillage != null && CanWalkVia(transform.position, newSlotWorld, _homeVillage.transform.position))
-            {
-                _wayPoint = _homeVillage.transform.position;
-                _hasWayPoint = true;
-                UpdateMarchLine();
-                return true;
-            }
+            if (SetWalkPath(_grid.CellToWorld(newSlot))) return true;
 
             // 도로/벽이 가로막았다 = 아군이 갈 수 없는 칸이다. 우회시키지 않고 거절한다.
             Debug.LogError($"[{nameof(AllyUnit)}] {newSlot} 로 재배치할 수 없다 (도로/벽이 가로막음). " +
@@ -409,20 +374,26 @@ namespace PMF.Actors
         {
             float step = _def.MoveSpeed * Time.deltaTime;
 
-            // 경유점이 있으면 거기 먼저 들른다 (도로를 우회하는 구간).
-            if (_hasWayPoint)
+            // 경유점을 순서대로 지난다. 칸에 묶이지 않고 모서리를 스치듯 돈다.
+            while (step > 0f && _walkIndex < _walkPath.Count)
             {
-                transform.position = Vector3.MoveTowards(transform.position, _wayPoint, step);
-                UpdateMarchLine();
-                if ((transform.position - _wayPoint).sqrMagnitude < 0.0001f) _hasWayPoint = false;
-                return;
+                Vector3 target = _walkPath[_walkIndex];
+                float remaining = Vector3.Distance(transform.position, target);
+                if (remaining > step)
+                {
+                    transform.position = Vector3.MoveTowards(transform.position, target, step);
+                    step = 0f;
+                    break;
+                }
+
+                transform.position = target;
+                step -= remaining;
+                _walkIndex++;
             }
 
-            Vector3 target = _grid.CellToWorld(_targetSlot);
-            transform.position = Vector3.MoveTowards(transform.position, target, step);
-            UpdateMarchLine();   // 두세 점짜리 선이라 매 프레임 갱신해도 싸다
-            if ((transform.position - target).sqrMagnitude < 0.0001f)
-                Deploy();
+            UpdateMarchLine();
+
+            if (_walkIndex >= _walkPath.Count) Deploy();
         }
 
         private void Deploy()
@@ -473,23 +444,18 @@ namespace PMF.Actors
         private void UpdateMarchLine()
         {
             if (_marchLine == null) return;
-            if (_state != State.Marching) { _marchLine.enabled = false; return; }
+            if (_state != State.Marching || _walkIndex >= _walkPath.Count)
+            {
+                _marchLine.enabled = false;
+                return;
+            }
 
-            Vector3 target = _grid.CellToWorld(_targetSlot);
-            if (_hasWayPoint)
-            {
-                // 우회 구간이 보이게 꺾인 선으로 그린다.
-                _marchLine.positionCount = 3;
-                _marchLine.SetPosition(0, transform.position);
-                _marchLine.SetPosition(1, _wayPoint);
-                _marchLine.SetPosition(2, target);
-            }
-            else
-            {
-                _marchLine.positionCount = 2;
-                _marchLine.SetPosition(0, transform.position);
-                _marchLine.SetPosition(1, target);
-            }
+            // 현재 위치 + 남은 경유점들 — 우회 구간이 그대로 보인다.
+            int remaining = _walkPath.Count - _walkIndex;
+            _marchLine.positionCount = remaining + 1;
+            _marchLine.SetPosition(0, transform.position);
+            for (int i = 0; i < remaining; i++)
+                _marchLine.SetPosition(i + 1, _walkPath[_walkIndex + i]);
             _marchLine.enabled = true;
         }
     }

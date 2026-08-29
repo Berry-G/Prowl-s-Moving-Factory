@@ -181,11 +181,11 @@ namespace PMF.Session
                 return;
             }
 
-            // 아군은 도로를 건널 수 없다 — 마을에서 걸어갈 수 없는 칸이면 고용 자체를 받지 않는다.
-            if (!AllyUnit.CanWalk(_selectedVillage.transform.position, GridSystem.Instance.CellToWorld(coord)))
+            // 아군은 도로를 건널 수 없다 — 돌아서도 갈 수 없는 칸이면 고용 자체를 받지 않는다.
+            if (!AllyUnit.CanReach(_selectedVillage.transform.position, GridSystem.Instance.CellToWorld(coord)))
             {
-                ShowNotice(GridSystem.Instance.CellToWorld(coord), "길 건너편");
-                Debug.Log($"[Deployment] {coord} 는 도로 건너편이라 갈 수 없다");
+                ShowNotice(GridSystem.Instance.CellToWorld(coord), "갈 수 없음");
+                Debug.Log($"[Deployment] {coord} 로 가는 길이 없다");
                 return;
             }
 
@@ -340,8 +340,8 @@ namespace PMF.Session
             // 도로 건너편으로는 옮길 수 없다.
             if (!unit.CanWalkTo(coord))
             {
-                ShowNotice(GridSystem.Instance.CellToWorld(coord), "길 건너편");
-                Debug.Log($"[Redeploy] {coord} 는 도로 건너편이라 갈 수 없다");
+                ShowNotice(GridSystem.Instance.CellToWorld(coord), "갈 수 없음");
+                Debug.Log($"[Redeploy] {coord} 로 가는 길이 없다");
                 return;
             }
 
@@ -413,41 +413,34 @@ namespace PMF.Session
             Debug.Log($"[Upgrade] {unit.name} → Lv{unit.TierLevel + 1} (비용 {cost}, 공격 {unit.GetComponent<Combat.Attacker>().Damage} · 사거리 {unit.GetComponent<Combat.Attacker>().Range})");
         }
 
-        /// <summary>Buildable && 미예약 && <b>origin 에서 걸어갈 수 있는</b> 칸 하이라이트.
+        /// <summary>이미 <b>차지된</b> 칸을 표시한다.
         ///
-        /// 아군은 도로를 건널 수 없다. 갈 수도 없는 칸을 칠해 놓으면 눌러 보고서야 거절당한다.
-        /// 그래서 하이라이트 단계에서 미리 거른다 — 보이는 것이 곧 갈 수 있는 곳이다.</summary>
+        /// 2026-08-30 이후 도로와 장애물이 아니면 어디든 배치할 수 있다. 그래서 "놓을 수 있는 칸"을
+        /// 전부 칠하면 맵의 대부분(391칸)이 덮여 도로도 지형도 안 보인다 — 정보가 아니라 소음이다.
+        /// 격자가 남아 있는 이유는 <b>겹치기를 막기 위해서</b>이므로, 알려줘야 하는 것은 그 반대다:
+        /// 여기는 이미 누가 서 있다.</summary>
         private void ShowHighlights(Vector3 origin, Vector3 via)
         {
             ClearHighlights();
 
             var grid = GridSystem.Instance;
-            for (int y = 0; y < grid.Height; y++)
+            foreach (var coord in _reservedSlots)
             {
-                for (int x = 0; x < grid.Width; x++)
-                {
-                    var coord = new GridCoord(x, y);
-                    if (grid.GetCell(coord) != CellType.Buildable) continue;
-                    if (_reservedSlots.Contains(coord)) continue;
-                    // 직선이 막혔어도 마을을 거쳐 우회할 수 있으면 갈 수 있는 칸이다.
-                    Vector3 cellWorld = grid.CellToWorld(coord);
-                    if (!AllyUnit.CanWalk(origin, cellWorld) && !AllyUnit.CanWalkVia(origin, cellWorld, via)) continue;
+                if (!grid.InBounds(coord)) continue;
 
-                    var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    Destroy(quad.GetComponent<Collider>());   // 물리 미사용 (ADR-0005)
-                    quad.transform.position = grid.CellToWorld(coord);
-                    quad.transform.localScale = new Vector3(grid.CellSize * 0.9f, grid.CellSize * 0.9f, 1f);
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                Destroy(quad.GetComponent<Collider>());   // 물리 미사용 (ADR-0005)
+                quad.transform.position = grid.CellToWorld(coord);
+                quad.transform.localScale = new Vector3(grid.CellSize * 0.9f, grid.CellSize * 0.9f, 1f);
 
-                    var renderer = quad.GetComponent<Renderer>();
-                    renderer.material = new Material(Shader.Find("Sprites/Default"));
-                    // 하늘색 반투명은 이미 파란 Buildable 타일과 겹쳐서 안 보인다 — 노랑으로 확실히 대비.
-                    renderer.material.color = new Color(1f, 0.9f, 0.2f, 0.65f);
-                    renderer.sortingLayerName = "Deploy";
-                    // Tilemap_Buildable 도 같은 레이어의 order=0 이라 동률이면 타일이 위로 뜬다 — 확실히 더 높게.
-                    renderer.sortingOrder = 5;
+                var renderer = quad.GetComponent<Renderer>();
+                renderer.material = new Material(Shader.Find("Sprites/Default"));
+                renderer.material.color = new Color(1f, 0.35f, 0.3f, 0.55f);   // 차지된 칸 = 붉게
+                renderer.sortingLayerName = "Deploy";
+                // Tilemap_Buildable 도 같은 레이어의 order=0 이라 동률이면 타일이 위로 뜬다 — 확실히 더 높게.
+                renderer.sortingOrder = 5;
 
-                    _highlights.Add(quad);
-                }
+                _highlights.Add(quad);
             }
         }
 

@@ -25,35 +25,14 @@ namespace PMF.EditorTools
             new Vector2Int(24, 6), new Vector2Int(30, 6),   // S7 가로
         };
 
-        // --- Buildable 사각형들 ---
-        //
-        // 2026-08-29 재설계 — 규칙 두 가지가 배치를 강제한다.
-        //   1) 마을은 **2개**다.
-        //   2) 아군은 **도로를 건널 수 없다.** 마을에서 배치 칸까지 직선이 도로를 지나면 안 된다.
-        //      (그리드 패스파인딩은 금지 — ADR-0004. 그래서 "직선으로 닿는가"가 곧 도달 가능 여부다.)
-        //
-        // 옛 배치는 이 규칙에서 무너졌다. 실측: Village_3(26,4) 은 배치 칸 97개 중 **2개**밖에 못 갔다.
-        // 마을 후보를 전수 계산해 도로 51칸을 100% 덮는 조합 (10,13) + (27,9) 를 골랐다.
-        //
-        // 각 사각형은 도로를 하나도 포함하지 않고, 담당 마을에서 직선으로 전부 닿는다.
-        // 근접(사거리 1.6)이 쓸모 있으려면 도로에 인접해야 한다는 G-01 처방은 그대로 지킨다.
-
-        // 마을1(10,13) 담당 — 도로 S1(y=9)·S2(x=8)·S3(y=4)·S4(x=16)·S5(y=13) 를 덮는다.
-        public static readonly RectInt BuildableA = new RectInt(1, 10, 7, 4);    // S1 북쪽
-        public static readonly RectInt BuildableB = new RectInt(9, 5, 7, 4);     // S2 동쪽 · S3 북쪽
-        public static readonly RectInt BuildableC = new RectInt(9, 10, 7, 4);    // S1 북쪽~S4 서쪽 (마을1 포함)
-        public static readonly RectInt BuildableD = new RectInt(16, 14, 6, 2);   // S5 북쪽
-
-        // 마을2(27,9) 담당 — 도로 S6(x=24)·S7(y=6) 를 덮는다.
-        public static readonly RectInt BuildableE = new RectInt(25, 7, 6, 6);
-
         // --- 마을 슬롯 2곳 ---
-        // 각 마을은 자기 담당 사각형 **안에** 있다. 사각형은 볼록하므로 마을에서 그 안 어느 칸으로도
-        // 직선이 사각형을 벗어나지 않는다 = 도로를 건널 일이 없다.
+        // 두 마을은 도로를 건너지 않고 서로 오갈 수 있는 <b>같은 구역</b>에 있다 (실측: 걸어다닐 수 있는
+        // 땅은 2구역 178칸 / 215칸이고 마을 둘 다 215칸 구역).
+        // 그래서 어느 마을에서 뽑아도 같은 곳으로 보낼 수 있고, 마을은 "출발 지점"이지 "담당 구역"이 아니다.
         public static readonly Vector2Int[] Villages =
         {
-            new Vector2Int(10, 13),  // 서쪽 — 경로 전반부(S1~S5)를 담당
-            new Vector2Int(27, 9),   // 동쪽 — 경로 후반부(S6~S7, 탈출 직전)를 담당
+            new Vector2Int(10, 13),  // 서쪽 — 경로 전반부에서 가깝다
+            new Vector2Int(27, 9),   // 동쪽 — 탈출 직전 구간에서 가깝다
         };
 
         // --- Blocked 덩어리 3개 ---
@@ -129,14 +108,17 @@ namespace PMF.EditorTools
                 if (v.x == x && v.y == y) return Category.Village;
             if (InRect(Blob1, x, y) || InRect(Blob2, x, y) || InRect(Blob3, x, y))
                 return Category.Blocked;
-            if (InRect(BuildableA, x, y) || InRect(BuildableB, x, y) || InRect(BuildableC, x, y)
-                || InRect(BuildableD, x, y) || InRect(BuildableE, x, y))
-                return Category.Buildable;
             if (OnRoad(x, y)) return Category.Road;
 
-            // 테두리 1칸은 비워 둔다 (Blocked).
+            // 2026-08-30 확정: <b>도로와 장애물이 아니면 어디든 배치할 수 있다.</b>
+            // 사각형으로 배치 구역을 오려내던 방식을 버렸다 — 어디는 되고 어디는 안 되는 이유를
+            // 화면에서 설명할 수 없었고, 실제로 "길로 막히지도 않았는데 왜 못 가지?" 라는 지적을 받았다.
+            // 격자는 이제 **겹치기를 막는 용도**다 (한 칸에 한 유닛). 이동 경로는 칸에 묶이지 않는다.
+            // 제약을 걸고 싶으면 장애물(호수·거대 바위 = Blocked)을 놓아서 건다.
             if (x >= 1 && x <= 30 && y >= 1 && y <= 16)
-                return Category.Ground;
+                return Category.Buildable;
+
+            // 테두리 1칸은 비워 둔다.
             return Category.Empty;
         }
 
