@@ -48,13 +48,24 @@ namespace PMF.Combat
                 TargetRegistry.Unregister(this);
         }
 
+        /// <summary>최대 체력과 소속 팀을 정한다. 각 액터의 Start 에서 호출된다.
+        ///
+        /// ⚠️ <b>여기서 반드시 다시 등록해야 한다.</b>
+        /// <see cref="OnEnable"/>(등록)은 이 호출보다 <b>먼저</b> 돌고, 그때 <c>_team</c> 은 아직
+        /// 기본값이다. 다시 등록하지 않으면 모든 Health 가 기본값 팀 리스트에 눌러앉는다.
+        /// 실제로 보호대상이 Enemy 리스트에 남아 있었고, 그 결과
+        /// <b>적은 보호대상을 찾지 못하고 아군은 보호대상을 때렸다</b> (2026-08-29).</summary>
         public void Initialize(float max, Team team)
         {
+            TargetRegistry.UnregisterFromAll(this);   // 팀을 바꾸기 전에, 어느 리스트에 있든 뺀다
+
             _maxHealth = max;
             _current = max;
             _team = team;
             _isAlive = true;
             _initialized = true;
+
+            if (_registryEnabled && isActiveAndEnabled) TargetRegistry.Register(this);
         }
 
         /// <summary>레지스트리 등록 제어. 행군 중 아군은 false 로 시작하고 배치 시 true.</summary>

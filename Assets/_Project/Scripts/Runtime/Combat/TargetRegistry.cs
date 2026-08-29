@@ -29,6 +29,16 @@ namespace PMF.Combat
             _lists[(int)target.Team].Remove(target);
         }
 
+        /// <summary>모든 팀 리스트에서 제거한다.
+        /// 팀이 바뀔 때 쓴다 — <b>이전 팀을 몰라도</b> 안전하게 지운다.
+        /// <see cref="Unregister"/> 는 현재 Team 리스트만 보므로, 팀을 바꾼 뒤에 부르면
+        /// 옛 리스트에 유령 항목이 남는다 (2026-08-29 실제 버그).</summary>
+        public static void UnregisterFromAll(IDamageable target)
+        {
+            if (target == null) return;
+            for (int i = 0; i < _lists.Length; i++) _lists[i].Remove(target);
+        }
+
         /// <summary>origin 기준 range 안에서 team 소속 살아있는 대상 중 가장 가까운 것. 없으면 null.</summary>
         public static IDamageable FindNearest(Vector3 origin, float range, Team team)
         {
