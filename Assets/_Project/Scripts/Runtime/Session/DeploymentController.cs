@@ -26,6 +26,7 @@ namespace PMF.Session
 
         private Camera _camera;
         private Village _selectedVillage;
+        private UnitDefinition _hireHoverUnit;   // 고용 버튼 hover 중인 정의 (G-16). null = 없음
         private UnitDefinition _selectedUnit;
         private readonly HashSet<GridCoord> _reservedSlots = new HashSet<GridCoord>();
         private readonly List<GameObject> _highlights = new List<GameObject>();
@@ -153,13 +154,18 @@ namespace PMF.Session
             ShowHighlights();   // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
 
             var wallet = GameSession.Instance.Wallet;
-            _hirePanel.Show(village.HireableUnits, wallet, OnUnitPicked);
+            _hirePanel.Show(village.HireableUnits, wallet, OnUnitPicked, OnUnitHovered);
             Debug.Log($"[Deployment] 마을 선택: {village.name} {coord}");
         }
+
+        /// <summary>고용 버튼 hover (G-16). 마을 주변에 그 유닛의 사거리 원을 띄운다.
+        /// null = 이탈. 실제 그리기는 <see cref="UpdateRangeHover"/> 가 매 프레임 한다.</summary>
+        private void OnUnitHovered(UnitDefinition unit) => _hireHoverUnit = unit;
 
         private void OnUnitPicked(UnitDefinition unit)
         {
             _selectedUnit = unit;
+            _hireHoverUnit = null;
             _mode = Mode.SlotSelect;
             _hirePanel.Hide();
             Debug.Log($"[Deployment] 유닛 선택: {unit.DisplayName} — 슬롯을 고르라");
@@ -217,6 +223,7 @@ namespace PMF.Session
             _mode = Mode.Idle;
             _selectedVillage = null;
             _selectedUnit = null;
+            _hireHoverUnit = null;
             if (_hirePanel != null) _hirePanel.Hide();
             ClearHighlights();
             GameClock.Instance?.ExitUiSlowMotion();   // 취소/고용 확정 어느 쪽으로 끝나도 여기서 복귀.
@@ -229,6 +236,16 @@ namespace PMF.Session
         private void UpdateRangeHover()
         {
             if (_hoverRange == null || _camera == null) return;
+
+            // 고용 버튼 hover (G-16) — 포인터가 UI 위에 있는 상태이므로,
+            // 아래의 "UI 위면 숨긴다" 판정보다 반드시 먼저 처리해야 한다.
+            if (_hireHoverUnit != null && _selectedVillage != null)
+            {
+                _hoverRange.Show(_selectedVillage.transform.position,
+                                 _hireHoverUnit.AttackRange, PreviewRangeColor);
+                return;
+            }
+
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             {
                 _hoverRange.Hide();

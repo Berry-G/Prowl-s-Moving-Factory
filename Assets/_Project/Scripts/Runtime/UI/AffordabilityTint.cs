@@ -17,9 +17,9 @@ namespace PMF.UI
         {
             _unit = unit;
             _button = GetComponent<Button>();
+            // 라벨 문구는 HirePanel 이 정한다 (G-16 에서 이름/비용/사거리·DPS 3줄이 되었다).
+            // 여기서는 색과 interactable 만 만진다.
             _label = GetComponentInChildren<Text>();
-            if (_label != null)
-                _label.text = $"{_unit.DisplayName}  ({_unit.HireCost})";
         }
 
         private void OnEnable()

@@ -404,7 +404,7 @@ namespace PMF.EditorTools
             rect.anchorMax = new Vector2(0f, 0f);
             rect.pivot = new Vector2(0f, 0f);
             rect.anchoredPosition = new Vector2(16f, 56f);
-            rect.sizeDelta = new Vector2(260f, 160f);
+            rect.sizeDelta = new Vector2(260f, 200f);   // 3줄 라벨 버튼 2개가 들어간다 (G-16)
 
             panelGo.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.18f, 0.9f);
 
