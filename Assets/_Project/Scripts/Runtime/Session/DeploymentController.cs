@@ -64,7 +64,7 @@ namespace PMF.Session
             if (mouse == null) return;
 
             // 입력 우선순위 1단계 — 일시정지 메뉴가 떠 있으면 게임 입력 전부 차단 (G-02/G-12).
-            if (PMF.UI.PauseMenu.IsOpen) return;
+            if (PMF.UI.PauseMenu.IsOpen || PMF.UI.ShortcutPanel.IsOpen) return;
 
             UpdateRangeHover();   // 사거리 미리보기 (G-06) — 클릭 처리와 무관하게 매 프레임.
 

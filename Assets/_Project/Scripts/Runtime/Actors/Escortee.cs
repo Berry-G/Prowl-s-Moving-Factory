@@ -111,15 +111,28 @@ namespace PMF.Actors
         }
 
         /// <summary>지름길이 열렸을 때. 현재 노드에서 탈출 노드까지 재계산.</summary>
+        /// <summary>경로를 다시 푼다 (지름길 개방 등 그래프 변경 시).
+        ///
+        /// ⚠️ <b>보호대상은 앞으로만 간다.</b>
+        /// 방금 지난 노드(CurrentNode)에서 다시 풀면 뒤로 돌아가는 경로가 나올 수 있다.
+        /// 실제로 지름길을 이미 지나친 뒤에 구매하면 되돌아가 지름길을 타려 했다 (2026-08-29 사용자 보고).
+        /// 그래서 <b>지금 향하고 있는 노드에서</b> 다시 풀고, 그 앞에 방금 지난 노드를 붙여
+        /// PathFollower 의 "route[0] 은 방금 지났거나 향하는 노드" 규약을 지킨다.
+        /// 결과적으로 이미 지나친 지름길은 경로 후보에서 자연히 빠진다 — 구매는 되지만 그쪽으로 가지 않는다.</summary>
         private void RecalculateRoute()
         {
             if (_exitNode == null) return;
 
-            var from = _follower.CurrentNode;
-            if (from == null) return;
+            var next = _follower.NextNode;
+            if (next == null) return;   // 이미 도착했거나 경로가 없다 — 다시 풀 것이 없다
 
-            if (_graph.TryFindRoute(from, _exitNode, PathAgent.Escortee, _route))
-                _follower.SetRoute(_route, transform.position);
+            if (!_graph.TryFindRoute(next, _exitNode, PathAgent.Escortee, _route)) return;
+
+            var current = _follower.CurrentNode;
+            if (current != null && current != next && (_route.Count == 0 || _route[0] != current))
+                _route.Insert(0, current);
+
+            _follower.SetRoute(_route, transform.position);
             // 실패 시 기존 경로 유지 (지름길은 Escortee 전용이라 실패는 이론상 없다)
         }
 

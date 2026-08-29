@@ -19,10 +19,14 @@ namespace PMF.Session
         private readonly List<UI.ShortcutMarker> _markers = new List<UI.ShortcutMarker>();
         private Camera _camera;
         private Session.DeploymentController _deployment;
+        private UI.ShortcutPanel _panel;
 
         private void Start()
         {
             _camera = Camera.main;
+            _panel = FindAnyObjectByType<UI.ShortcutPanel>();
+            if (_panel == null)
+                Debug.LogError($"[{nameof(ShortcutController)}] ShortcutPanel 이 씬에 없다 — 구매 UI 를 띄울 수 없다", this);
             BuildMarkers();
         }
 
@@ -50,11 +54,27 @@ namespace PMF.Session
             }
         }
 
+        /// <summary>확인 패널에서 [개방] 을 눌렀을 때. 여기서 처음으로 자원이 빠진다.</summary>
+        private void Purchase(UI.ShortcutMarker marker, int cost)
+        {
+            var wallet = GameSession.Instance.Wallet;
+            if (marker == null || wallet == null || marker.IsOpen) return;
+            if (!wallet.TrySpend(cost)) return;
+
+            if (PathGraph.Instance.OpenShortcut(marker.EdgeId))
+            {
+                marker.SetOpen(true);
+                marker.Pulse();
+                Debug.Log($"[Shortcut] 지름길 개방! (edge {marker.EdgeId}, -{cost})");
+            }
+        }
+
         private void Update()
         {
             var mouse = Mouse.current;
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+            if (UI.PauseMenu.IsOpen || UI.ShortcutPanel.IsOpen) return;   // 모달이 떠 있으면 게임판 클릭 없음
 
             if (_deployment == null) _deployment = FindAnyObjectByType<DeploymentController>();
             if (_deployment != null && _deployment.IsBusy)
@@ -72,20 +92,11 @@ namespace PMF.Session
                 var wallet = GameSession.Instance.Wallet;
                 if (definition == null || wallet == null) return;
 
-                if (!wallet.CanAfford(definition.ShortcutCost))
-                {
-                    Debug.Log($"[Shortcut] 자원 부족 ({definition.ShortcutCost} 필요)");
-                    return;
-                }
-
-                if (!wallet.TrySpend(definition.ShortcutCost)) return;
-
-                if (PathGraph.Instance.OpenShortcut(marker.EdgeId))
-                {
-                    marker.SetOpen(true);
-                    marker.Pulse();
-                    Debug.Log($"[Shortcut] 지름길 개방! (edge {marker.EdgeId}, -{definition.ShortcutCost})");
-                }
+                // 즉시 지출하지 않는다 — 되돌릴 수 없는 소비라 확인 단계를 둔다.
+                // 자원이 모자라도 패널은 띄운다: 얼마가 필요한지 보여야 한다.
+                int cost = definition.ShortcutCost;
+                var captured = marker;
+                _panel.Show(cost, wallet.CanAfford(cost), () => Purchase(captured, cost));
                 return;
             }
         }

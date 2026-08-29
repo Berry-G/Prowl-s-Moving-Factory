@@ -307,7 +307,8 @@ namespace PMF.EditorTools
             BuildResultPanel(canvasGo.transform);
             canvasGo.AddComponent<UI.HudTopBar>();      // 상단 HUD 바 (G-14) — 자기 UI 를 스스로 만든다
             canvasGo.AddComponent<UI.UnitInfoPanel>();  // 유닛 정보 패널 (G-15)
-            canvasGo.AddComponent<UI.PauseMenu>();   // 일시정지 메뉴 (G-12) — 자기 UI 를 스스로 만든다
+            canvasGo.AddComponent<UI.ShortcutPanel>(); // 지름길 구매 확인 패널
+            canvasGo.AddComponent<UI.PauseMenu>();     // 일시정지 메뉴 (G-12) — 자기 UI 를 스스로 만든다
 
             // DeploymentController 는 Start 에 FindAnyObjectByType 폴백이 있지만,
             // 인스펙터에 보이는 것이 진실이어야 하므로 여기서 명시 배선한다.
