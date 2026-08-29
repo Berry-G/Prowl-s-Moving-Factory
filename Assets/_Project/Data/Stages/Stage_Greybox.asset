@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6aa69763d41bff54bbb0d07768767dea, type: 3}
   m_Name: Stage_Greybox
   m_EditorClassIdentifier: PMF.Runtime::PMF.Data.StageDefinition
-  _escorteeSpeed: 1.2
+  _escorteeSpeed: 0.42
   _escorteeMaxHealth: 100
-  _motherSpeed: 0.8
+  _motherSpeed: 0.28
   _motherSpawnDelay: 5
   _spawnVolleyCount: 3
   _spawnVolleySpacing: 0.4

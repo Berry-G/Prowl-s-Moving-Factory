@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Ally_CatFolk
   m_EditorClassIdentifier: PMF.Runtime::PMF.Data.UnitDefinition
   _displayName: "\uACE0\uC591\uC774 \uC218\uC778"
-  _moveSpeed: 3.2
+  _moveSpeed: 1.12
   _maxHealth: 50
   _attackRange: 1.6
   _attackDamage: 7

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Robot_Walker
   m_EditorClassIdentifier: PMF.Runtime::PMF.Data.EnemyDefinition
   _displayName: "\uC6CC\uCEE4"
-  _moveSpeed: 2
+  _moveSpeed: 0.7
   _maxHealth: 20
   _attackRange: 1
   _attackDamage: 5

@@ -119,7 +119,9 @@ namespace PMF.Session
         /// <summary>셀 좌표에 서 있는(또는 지나가는) 아군을 찾는다. 행군 중인 유닛도 선택된다.</summary>
         private AllyUnit FindAllyAt(GridCoord coord)
         {
-            var allies = FindObjectsByType<AllyUnit>(FindObjectsSortMode.None);
+            // FindObjectsSortMode 는 Unity 6000.5 에서 폐기됐다 (CS0618).
+            // 인자 없는 오버로드가 정렬하지 않는 기본 동작이다.
+            var allies = FindObjectsByType<AllyUnit>();
             foreach (var ally in allies)
             {
                 if (GridSystem.Instance.WorldToCell(ally.transform.position) == coord)

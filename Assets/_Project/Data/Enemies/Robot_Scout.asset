@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Robot_Scout
   m_EditorClassIdentifier: PMF.Runtime::PMF.Data.EnemyDefinition
   _displayName: "\uC2A4\uCE74\uC6B0\uD2B8"
-  _moveSpeed: 3.4
+  _moveSpeed: 1.19
   _maxHealth: 10
   _attackRange: 1
   _attackDamage: 4
