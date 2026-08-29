@@ -77,15 +77,19 @@ namespace PMF.EditorTools
             new NodeDef("N00_start",     1, 9,  isStart: true),
             new NodeDef("N01",           5, 9),
             new NodeDef("N02",           8, 9),
-            new NodeDef("N03",           8, 5),
+            // ⚠️ 코너 노드는 반드시 도로가 꺾이는 셀에 정확히 놓아야 한다.
+            // 한 칸이라도 어긋나면 이웃 노드와의 직선 구간이 대각선이 되어 코너를 가로지른다
+            // (= 액터가 길 밖으로 나간다). 2026-08-29 실측으로 N03·N06·N10·N11 이 어긋나 있었다.
+            // 도로 코너: (8,9) (8,4) (16,4) (16,13) (24,13) (24,6)
+            new NodeDef("N03",           8, 4),   // S2↔S3 코너 (was 8,5)
             new NodeDef("N04",          11, 4),
             new NodeDef("N05",          15, 4),
-            new NodeDef("N06",          16, 5),
+            new NodeDef("N06",          16, 4),   // S3↔S4 코너 (was 16,5)
             new NodeDef("N07",          16, 13),
             new NodeDef("N08",          18, 13),
             new NodeDef("N09",          21, 13),
-            new NodeDef("N10",          24, 12),
-            new NodeDef("N11",          24, 7),
+            new NodeDef("N10",          24, 13),  // S5↔S6 코너 (was 24,12)
+            new NodeDef("N11",          24, 6),   // S6↔S7 코너 (was 24,7)
             new NodeDef("N12",          27, 6),
             new NodeDef("N13_exit",     30, 6, isExit: true),
             new NodeDef("B01_branch",   12, 8),
