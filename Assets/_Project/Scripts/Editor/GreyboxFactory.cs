@@ -264,7 +264,11 @@ namespace PMF.EditorTools
             so.FindProperty("_escorteeMaxHealth").floatValue = 100f;
             so.FindProperty("_motherSpeed").floatValue = 0.8f;
             so.FindProperty("_motherSpawnDelay").floatValue = 5f;
-            so.FindProperty("_motherSpawnInterval").floatValue = 3f;
+            // 스폰 리듬 (G-19) — 묶음 3마리 + 휴지. 평균 밀도는 옛 3초 등간격(0.333마리/초)과 같게 잡는다:
+            // 사이클 = (3-1)×0.4 + 8.2 = 9.0초에 3마리 → 0.333마리/초.
+            so.FindProperty("_spawnVolleyCount").intValue = 3;
+            so.FindProperty("_spawnVolleySpacing").floatValue = 0.4f;
+            so.FindProperty("_spawnRestSeconds").floatValue = 8.2f;
             // 스폰 테이블 (G-17) — 워커 70 / 스카우트 30 (G-18).
             var table = so.FindProperty("_spawnTable");
             table.arraySize = 2;

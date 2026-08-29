@@ -32,19 +32,41 @@ namespace PMF.Actors
         private UI.SpawnTelegraph _telegraph;
         private bool _telegraphActive;
 
+        // --- 스폰 리듬 (G-19): 등간격이 아니라 묶음(volley) + 휴지(rest) ---
+        private enum SpawnPhase { Rest, Volley }
+
+        private SpawnPhase _phase = SpawnPhase.Rest;
+        private float _restTimer;        // 다음 묶음까지 남은 휴지
+        private float _spacingTimer;     // 묶음 안에서 다음 한 마리까지
+        private int _volleyRemaining;    // 이번 묶음에 남은 마릿수
+
         /// <summary>아직 활동 전(첫 스폰 유예 중)인가. HUD 보조 정보용 (G-14).</summary>
         public bool IsIdle => _state == State.Idle;
 
-        /// <summary>다음 스폰까지 남은 게임시간(초).
-        /// 유예 중이면 활동 시작까지 남은 시간을 준다. HUD 보조 정보용 (G-14).</summary>
-        public float SecondsToNextSpawn
+        /// <summary>묶음이 지금 나가는 중인가. HUD 게이지 표시용 (G-19).</summary>
+        public bool IsVolleyFiring => _state == State.Chasing && _phase == SpawnPhase.Volley;
+
+        /// <summary>다음 묶음까지 남은 게임시간(초). 묶음 진행 중이면 0.
+        /// 유예 중이면 활동 시작까지 남은 시간을 준다.</summary>
+        public float SecondsToNextVolley
         {
             get
             {
                 if (_def == null) return 0f;
-                return _state == State.Chasing
-                    ? Mathf.Max(_def.MotherSpawnInterval - _stateTimer, 0f)
-                    : Mathf.Max(_stateTimer, 0f);
+                if (_state != State.Chasing) return Mathf.Max(_stateTimer, 0f);
+                return _phase == SpawnPhase.Rest ? Mathf.Max(_restTimer, 0f) : 0f;
+            }
+        }
+
+        /// <summary>휴지 진행도 0~1 (1 = 곧 묶음이 나간다). HUD 게이지용 (G-19).</summary>
+        public float VolleyGauge01
+        {
+            get
+            {
+                if (_def == null || _state != State.Chasing) return 0f;
+                if (_phase == SpawnPhase.Volley) return 1f;
+                float rest = _def.SpawnRestSeconds;
+                return rest <= 0f ? 1f : Mathf.Clamp01(1f - _restTimer / rest);
             }
         }
 
@@ -110,6 +132,9 @@ namespace PMF.Actors
                     {
                         _state = State.Chasing;
                         _stateTimer = 0f;
+                        // 추격을 시작하면 첫 묶음까지 한 번 쉬고 들어간다 (G-19).
+                        _phase = SpawnPhase.Rest;
+                        _restTimer = _def.SpawnRestSeconds;
                         RecalculateDestination();
                     }
                     break;
@@ -164,32 +189,59 @@ namespace PMF.Actors
                     transform.position += toEscortee.normalized * (_def.MotherSpeed * dt);
             }
 
-            // 스폰 예고 (G-10, GDD §7) — 스폰 _spawnTelegraphSeconds 전에 링 확산 + 모체 살짝 확대.
-            // 예고 시간은 스폰 간격에 포함된다 (첫 스폰이 늦어지지 않는다 — 함정 목록).
-            float timeToNext = Mathf.Max(_def.MotherSpawnInterval - _stateTimer, 0f);
-            if (!_telegraphActive && timeToNext <= _def.SpawnTelegraphSeconds && timeToNext > 0f)
-            {
-                _telegraphActive = true;
-                _telegraph.Show(_def.SpawnTelegraphSeconds, 1.2f);
-            }
+            UpdateSpawnRhythm(dt);
+        }
 
-            if (_telegraphActive)
+        /// <summary>묶음(volley) + 휴지(rest) 리듬 (G-19).
+        /// 등간격이면 긴장의 오르내림이 없다. 몰려오고 숨 돌리는 파형이 있어야
+        /// 플레이어가 휴지에 재배치(G-03)를 하게 된다.
+        /// 웨이브제가 아니다 — 번호도 클리어 보너스도 없다. 호흡만 만든다 (GDD §4).</summary>
+        private void UpdateSpawnRhythm(float dt)
+        {
+            if (_phase == SpawnPhase.Rest)
             {
-                float k = _def.SpawnTelegraphSeconds > 0f
-                    ? Mathf.Clamp01(1f - timeToNext / _def.SpawnTelegraphSeconds)
-                    : 0f;
-                transform.localScale = _baseScale * (1f + 0.15f * k);   // 살짝 커졌다 돌아온다
+                _restTimer -= dt;
+
+                // 예고(G-10)는 묶음 시작 전 <b>한 번</b>이다. 마리마다 울리지 않는다.
+                // 예고 시간은 휴지에 포함된다 — 첫 묶음이 늦어지지 않는다.
+                if (!_telegraphActive && _restTimer <= _def.SpawnTelegraphSeconds && _restTimer > 0f)
+                {
+                    _telegraphActive = true;
+                    _telegraph.Show(_def.SpawnTelegraphSeconds, 1.2f);
+                }
+
+                if (_telegraphActive)
+                {
+                    float k = _def.SpawnTelegraphSeconds > 0f
+                        ? Mathf.Clamp01(1f - _restTimer / _def.SpawnTelegraphSeconds)
+                        : 0f;
+                    transform.localScale = _baseScale * (1f + 0.15f * k);   // 살짝 커졌다 돌아온다
+                }
+
+                if (_restTimer > 0f) return;
+
+                // 묶음 시작 — 링이 사라지는 그 프레임에 첫 적이 나온다.
+                _telegraphActive = false;
+                _telegraph.End();
+                transform.localScale = _baseScale;
+                _phase = SpawnPhase.Volley;
+                _volleyRemaining = _def.SpawnVolleyCount;
+                _spacingTimer = 0f;
             }
 
             // InvokeRepeating 금지 — Update 타이머 누산.
-            _stateTimer += dt;
-            if (_stateTimer >= _def.MotherSpawnInterval)
+            _spacingTimer -= dt;
+            while (_volleyRemaining > 0 && _spacingTimer <= 0f)
             {
-                _stateTimer -= _def.MotherSpawnInterval;
-                _telegraphActive = false;
-                _telegraph.End();          // 링이 사라지는 그 프레임에 적이 나온다
-                transform.localScale = _baseScale;
                 SpawnEnemy();
+                _volleyRemaining--;
+                if (_volleyRemaining > 0) _spacingTimer += _def.SpawnVolleySpacing;
+            }
+
+            if (_volleyRemaining <= 0)
+            {
+                _phase = SpawnPhase.Rest;
+                _restTimer = _def.SpawnRestSeconds;
             }
         }
 

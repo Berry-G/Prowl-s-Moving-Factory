@@ -16,7 +16,9 @@ MonoBehaviour:
   _escorteeMaxHealth: 100
   _motherSpeed: 0.8
   _motherSpawnDelay: 5
-  _motherSpawnInterval: 3
+  _spawnVolleyCount: 3
+  _spawnVolleySpacing: 0.4
+  _spawnRestSeconds: 8.2
   _spawnTable:
   - _enemy: {fileID: 11400000, guid: 9e2bcf7abc73f5e4d99e8d5bdc15f0e0, type: 2}
     _weight: 70

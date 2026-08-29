@@ -98,10 +98,28 @@ namespace PMF.UI
 
             var mother = MakeText(strip, "MotherInfoLabel", "", 18, TextAnchor.MiddleRight,
                                   new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                                  new Vector2(-PauseButtonReserve, -12f), new Vector2(420f, 24f),
+                                  new Vector2(-PauseButtonReserve, -8f), new Vector2(420f, 24f),
                                   new Vector2(1f, 0.5f));
             mother.color = new Color(0.78f, 0.80f, 0.86f);   // 보조 위계는 한 단계 낮춘다
-            mother.gameObject.AddComponent<MotherInfoLabel>();
+            var info = mother.gameObject.AddComponent<MotherInfoLabel>();
+
+            // 다음 묶음까지 남은 시간 게이지 (G-19). 휴지를 배치에 쓰도록 유도한다.
+            var track = new GameObject("VolleyGaugeTrack", typeof(RectTransform), typeof(Image));
+            track.transform.SetParent(strip, false);
+            SetRect((RectTransform)track.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                    new Vector2(-PauseButtonReserve, -26f), new Vector2(220f, 8f), new Vector2(1f, 0.5f));
+            track.GetComponent<Image>().color = new Color(0.22f, 0.23f, 0.27f, 1f);
+
+            var gauge = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            gauge.transform.SetParent(track.transform, false);
+            var grt = (RectTransform)gauge.transform;
+            grt.anchorMin = Vector2.zero;
+            grt.anchorMax = Vector2.one;
+            grt.pivot = new Vector2(0f, 0.5f);
+            grt.offsetMin = Vector2.zero;
+            grt.offsetMax = Vector2.zero;
+
+            info.BindGauge(gauge.GetComponent<Image>());
         }
 
         // ---------- 헬퍼 ----------

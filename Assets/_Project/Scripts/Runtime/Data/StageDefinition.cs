@@ -13,7 +13,15 @@ namespace PMF.Data
         [Header("모체 (MotherSpawner)")]
         [SerializeField] private float _motherSpeed = 0.8f;
         [SerializeField] private float _motherSpawnDelay = 5f;
-        [SerializeField] private float _motherSpawnInterval = 3f;
+        [Header("스폰 리듬 (G-19) — 등간격이 아니라 묶음 + 휴지")]
+        [Tooltip("한 묶음에 내보낼 마릿수.")]
+        [SerializeField] private int _spawnVolleyCount = 3;
+        [Tooltip("묶음 안에서 한 마리와 다음 마리 사이 간격 (초, 게임시간).")]
+        [SerializeField] private float _spawnVolleySpacing = 0.4f;
+        [Tooltip("묶음이 끝나고 다음 묶음까지의 휴지 (초, 게임시간).\n" +
+                 "플레이어가 이 구간에 재배치(G-03)를 하도록 만드는 것이 목적이다.\n" +
+                 "예고(SpawnTelegraphSeconds)는 이 휴지 안에 포함된다.")]
+        [SerializeField] private float _spawnRestSeconds = 4f;
         [Tooltip("모체가 내보낼 적 목록과 가중치 (G-17). 항목이 하나면 그 하나만 나온다.")]
         [SerializeField] private SpawnEntry[] _spawnTable = new SpawnEntry[0];
         [Tooltip("보호대상 진행도(0~1) → 스폰되는 적의 최대 체력 배율 (회의 결정 13).\n" +
@@ -56,7 +64,13 @@ namespace PMF.Data
 
         public float MotherSpeed => _motherSpeed;
         public float MotherSpawnDelay => _motherSpawnDelay;
-        public float MotherSpawnInterval => _motherSpawnInterval;
+        public int SpawnVolleyCount => Mathf.Max(1, _spawnVolleyCount);
+        public float SpawnVolleySpacing => Mathf.Max(0f, _spawnVolleySpacing);
+        public float SpawnRestSeconds => Mathf.Max(0f, _spawnRestSeconds);
+
+        /// <summary>한 사이클(묶음 + 휴지) 길이. HUD 게이지 정규화와 밀도 계산에 쓴다.</summary>
+        public float SpawnCycleSeconds =>
+            (SpawnVolleyCount - 1) * SpawnVolleySpacing + SpawnRestSeconds;
         public System.Collections.Generic.IReadOnlyList<SpawnEntry> SpawnTable => _spawnTable;
         public bool MotherFollowsPath => _motherFollowsPath;
 
