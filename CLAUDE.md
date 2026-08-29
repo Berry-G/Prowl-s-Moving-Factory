@@ -44,11 +44,17 @@
 
 낡은 예제 코드를 그대로 옮기면 여기서 깨진다. **반드시 오른쪽 것을 써라.**
 
+> 이 표는 **6000.5.7f1 컴파일러가 실제로 뱉은 경고**로 확인했다 (2026-08-30).
+> Unity 를 올리면 또 낡는다 — `CS0618` 경고가 보이면 표를 의심하고 고쳐라.
+> 한 판 완주에 콘솔 경고 0개가 기준선이므로(TASKS G-21 체크리스트 2번) 폐기 API를 남겨 두면 안 된다.
+
 | 쓰지 마라 (구식/Obsolete) | 써라 |
 |---|---|
 | `Input.GetKeyDown`, `Input.mousePosition`, `Input.GetAxis` | `Keyboard.current.xKey.wasPressedThisFrame`, `Mouse.current.position.ReadValue()` (`using UnityEngine.InputSystem;`) |
 | `FindObjectOfType<T>()` | `FindFirstObjectByType<T>()` / `FindAnyObjectByType<T>()` |
-| `FindObjectsOfType<T>()` | `FindObjectsByType<T>(FindObjectsSortMode.None)` |
+| `FindObjectsOfType<T>()`, `FindObjectsByType<T>(FindObjectsSortMode.None)` | `FindObjectsByType<T>()` — **인자 없이.** 비활성까지 찾으려면 `FindObjectsByType<T>(FindObjectsInactive.Include)` |
+| `FindObjectsSortMode` (열거형 자체) | **쓰지 마라.** 이 열거형이 통째로 폐기됐다 — 인자 없는 오버로드가 정렬하지 않는 기본 동작이다 |
+| `Object.GetInstanceID()` | `GetEntityId()` — 반환형 `EntityId` 를 `int` 로 캐스팅하는 것도 폐기 예정이니 그대로 써라 |
 | `Rigidbody2D.velocity` | `Rigidbody2D.linearVelocity` — **단, 이 프로젝트는 Rigidbody2D 자체를 안 쓴다** |
 | `Camera.main` 을 매 프레임 호출 | `Awake()` 에서 한 번 캐시 |
 | `Grid.CellToWorld(c)` 로 유닛 위치 계산 | `Grid.GetCellCenterWorld(c)` — `CellToWorld` 는 셀의 **좌하단 모서리**를 준다 |
