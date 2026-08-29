@@ -19,11 +19,13 @@ namespace PMF.EditorTools
         {
             public GameObject EscorteePrefab;
             public GameObject MotherPrefab;
-            public GameObject EnemyPrefab;
+            public GameObject EnemyPrefab;      // Robot_Walker
+            public GameObject ScoutPrefab;      // Robot_Scout (Walker 의 프리팹 변형 — 색만 다르다)
             public GameObject AllyPrefab;
             public GameObject VillagePrefab;
             public StageDefinition Stage;
-            public EnemyDefinition EnemyDef;
+            public EnemyDefinition EnemyDef;    // Robot_Walker
+            public EnemyDefinition ScoutDef;    // Robot_Scout
             public UnitDefinition UnitDef;
             public Sprite Square;
             public Sprite Circle;
@@ -38,18 +40,21 @@ namespace PMF.EditorTools
             result.Square = GreyboxSprites.GetOrCreateSquare();
             result.Circle = GreyboxSprites.GetOrCreateCircle();
 
-            result.EnemyDef = CreateEnemyDefinition();
+            result.EnemyDef = CreateWalkerDefinition();
+            result.ScoutDef = CreateScoutDefinition();
             result.UnitDef = CreateUnitDefinition();
-            result.Stage = CreateStageDefinition(result.EnemyDef);
+            result.Stage = CreateStageDefinition(result.EnemyDef, result.ScoutDef);
 
             result.EscorteePrefab = CreateEscorteePrefab();
             result.MotherPrefab = CreateMotherPrefab();
-            result.EnemyPrefab = CreateEnemyPrefab(result);
+            result.EnemyPrefab = CreateWalkerPrefab(result);
+            result.ScoutPrefab = CreateScoutPrefabVariant(result.EnemyPrefab);
             result.AllyPrefab = CreateAllyPrefab(result);
             result.VillagePrefab = CreateVillagePrefab(result.UnitDef);
 
             WireDefinitionPrefabs(result.EnemyDef, result.EnemyPrefab,
                                   result.UnitDef, result.AllyPrefab);
+            WirePrefab(result.ScoutDef, result.ScoutPrefab);
 
             AssetDatabase.SaveAssets();
             return result;
@@ -76,6 +81,13 @@ namespace PMF.EditorTools
 
             so = new SerializedObject(unitDef);
             so.FindProperty("_prefab").objectReferenceValue = allyPrefab;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void WirePrefab(EnemyDefinition def, GameObject prefab)
+        {
+            var so = new SerializedObject(def);
+            so.FindProperty("_prefab").objectReferenceValue = prefab;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -116,14 +128,29 @@ namespace PMF.EditorTools
             return SaveAsPrefab(go, $"{PrefabRoot}/Mother.prefab");
         }
 
-        private static GameObject CreateEnemyPrefab(Result r)
+        private static GameObject CreateWalkerPrefab(Result r)
         {
-            var go = new GameObject("Enemy_Basic");
+            var go = new GameObject("Robot_Walker");
             AddSprite(go, r.Circle, new Color(0.9f, 0.15f, 0.15f), "Actors", 0.4f);
             go.AddComponent<Health>();
             go.AddComponent<Attacker>();
             go.AddComponent<Enemy>();
-            return SaveAsPrefab(go, $"{PrefabRoot}/Enemy_Basic.prefab");
+            return SaveAsPrefab(go, $"{PrefabRoot}/Robot_Walker.prefab");
+        }
+
+        /// <summary>Scout 는 Walker 의 <b>프리팹 변형</b>이다. 색만 오버라이드한다 (G-18 함정).</summary>
+        private static GameObject CreateScoutPrefabVariant(GameObject walkerPrefab)
+        {
+            string path = $"{PrefabRoot}/Robot_Scout.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (existing != null) return existing;
+
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(walkerPrefab);
+            inst.name = "Robot_Scout";
+            inst.GetComponent<SpriteRenderer>().color = new Color(1f, 0.62f, 0.16f);   // 주황 — 빠른 개체
+            var variant = PrefabUtility.SaveAsPrefabAsset(inst, path);
+            Object.DestroyImmediate(inst);
+            return variant;
         }
 
         private static GameObject CreateAllyPrefab(Result r)
@@ -161,18 +188,41 @@ namespace PMF.EditorTools
             return SaveAsPrefab(go, $"{PrefabRoot}/Village.prefab");
         }
 
-        private static EnemyDefinition CreateEnemyDefinition()
+        /// <summary>느리고 단단한 개체. 근접(고양이)이 회전율로 녹이는 대상 (G-18).</summary>
+        private static EnemyDefinition CreateWalkerDefinition()
         {
-            string path = $"{DataRoot}/Enemies/Enemy_Basic.asset";
+            string path = $"{DataRoot}/Enemies/Robot_Walker.asset";
             var def = AssetDatabase.LoadAssetAtPath<EnemyDefinition>(path);
             if (def != null) return def;
 
             def = ScriptableObject.CreateInstance<EnemyDefinition>();
             var so = new SerializedObject(def);
+            so.FindProperty("_displayName").stringValue = "워커";
             so.FindProperty("_moveSpeed").floatValue = 2.0f;
             so.FindProperty("_maxHealth").floatValue = 20f;
             so.FindProperty("_attackRange").floatValue = 1.0f;
             so.FindProperty("_attackDamage").floatValue = 5f;
+            so.FindProperty("_attackInterval").floatValue = 1.0f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.CreateAsset(def, path);
+            return def;
+        }
+
+        /// <summary>빠르고 약한 개체. 원거리(쥐)가 넓게 커버해야 잡힌다 (G-18).
+        /// 근접만으로 못 막는 것은 버그가 아니라 의도된 압박이다 — 근접 사거리를 올려 해결하지 마라.</summary>
+        private static EnemyDefinition CreateScoutDefinition()
+        {
+            string path = $"{DataRoot}/Enemies/Robot_Scout.asset";
+            var def = AssetDatabase.LoadAssetAtPath<EnemyDefinition>(path);
+            if (def != null) return def;
+
+            def = ScriptableObject.CreateInstance<EnemyDefinition>();
+            var so = new SerializedObject(def);
+            so.FindProperty("_displayName").stringValue = "스카우트";
+            so.FindProperty("_moveSpeed").floatValue = 3.4f;
+            so.FindProperty("_maxHealth").floatValue = 10f;
+            so.FindProperty("_attackRange").floatValue = 1.0f;
+            so.FindProperty("_attackDamage").floatValue = 4f;
             so.FindProperty("_attackInterval").floatValue = 1.0f;
             so.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.CreateAsset(def, path);
@@ -199,7 +249,7 @@ namespace PMF.EditorTools
             return def;
         }
 
-        private static StageDefinition CreateStageDefinition(EnemyDefinition enemyDef)
+        private static StageDefinition CreateStageDefinition(EnemyDefinition walkerDef, EnemyDefinition scoutDef)
         {
             const string path = StageAssetPath;
             var def = AssetDatabase.LoadAssetAtPath<StageDefinition>(path);
@@ -215,12 +265,15 @@ namespace PMF.EditorTools
             so.FindProperty("_motherSpeed").floatValue = 0.8f;
             so.FindProperty("_motherSpawnDelay").floatValue = 5f;
             so.FindProperty("_motherSpawnInterval").floatValue = 3f;
-            // 스폰 테이블 (G-17). 기본은 1종 × 가중치 1 — 단일 참조였던 기존 동작과 같다.
+            // 스폰 테이블 (G-17) — 워커 70 / 스카우트 30 (G-18).
             var table = so.FindProperty("_spawnTable");
-            table.arraySize = 1;
-            var entry = table.GetArrayElementAtIndex(0);
-            entry.FindPropertyRelative("_enemy").objectReferenceValue = enemyDef;
-            entry.FindPropertyRelative("_weight").intValue = 1;
+            table.arraySize = 2;
+            var walker = table.GetArrayElementAtIndex(0);
+            walker.FindPropertyRelative("_enemy").objectReferenceValue = walkerDef;
+            walker.FindPropertyRelative("_weight").intValue = 70;
+            var scout = table.GetArrayElementAtIndex(1);
+            scout.FindPropertyRelative("_enemy").objectReferenceValue = scoutDef;
+            scout.FindPropertyRelative("_weight").intValue = 30;
             so.FindProperty("_motherFollowsPath").boolValue = true;
             so.FindProperty("_startingResource").intValue = 150;
             so.FindProperty("_resourcePerSecond").floatValue = 8f;

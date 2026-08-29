@@ -19,7 +19,9 @@ MonoBehaviour:
   _motherSpawnInterval: 3
   _spawnTable:
   - _enemy: {fileID: 11400000, guid: 9e2bcf7abc73f5e4d99e8d5bdc15f0e0, type: 2}
-    _weight: 1
+    _weight: 70
+  - _enemy: {fileID: 11400000, guid: 1624c28d8f8142e4182f6431a9773729, type: 2}
+    _weight: 30
   _enemyHealthByProgress:
     serializedVersion: 2
     m_Curve:

@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 4040749861861369532}
   - component: {fileID: 7043053591329098405}
   m_Layer: 0
-  m_Name: Enemy_Basic
+  m_Name: Robot_Walker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
