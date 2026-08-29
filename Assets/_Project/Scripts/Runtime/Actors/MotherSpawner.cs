@@ -40,6 +40,19 @@ namespace PMF.Actors
         private float _spacingTimer;     // 묶음 안에서 다음 한 마리까지
         private int _volleyRemaining;    // 이번 묶음에 남은 마릿수
 
+        // --- 버스트 (G-20) ---
+        // ⚠️ 발동 여부를 static 에 담지 마라. 도메인 리로드가 꺼져 있어 다음 플레이로 샌다.
+        private readonly System.Collections.Generic.HashSet<int> _burstTriggerNodeIds
+            = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<int> _firedTriggers
+            = new System.Collections.Generic.HashSet<int>();
+        private float _burstTimer;          // 버스트 잔여 시간
+        private int _burstSpawned;          // 이번 버스트에서 내보낸 마릿수 (총량 보존 계산용)
+        private float _recoveryTimer;       // 추격 재개 후 속도 회수 잔여 시간
+
+        /// <summary>버스트 중인가. 모체가 멈추는 것 자체가 예고다 (G-20 작업 6).</summary>
+        public bool IsBursting => _state == State.Burst;
+
         /// <summary>아직 활동 전(첫 스폰 유예 중)인가. HUD 보조 정보용 (G-14).</summary>
         public bool IsIdle => _state == State.Idle;
 
@@ -109,7 +122,32 @@ namespace PMF.Actors
 
             _stateTimer = _def.MotherSpawnDelay;
 
+            ResolveBurstTriggers();
+
             _session.OnEscorteeReachedNode += OnEscorteeMoved;
+        }
+
+        /// <summary>버스트 트리거 노드 이름을 시작 시 한 번 해석한다 (G-20).
+        /// 이름 참조는 오타가 런타임까지 가므로 <b>여기서 없으면 LogError</b> 로 잡는다.</summary>
+        private void ResolveBurstTriggers()
+        {
+            _burstTriggerNodeIds.Clear();
+            _firedTriggers.Clear();
+
+            var names = _def.BurstTriggerNodeIds;
+            if (names == null) return;
+
+            for (int i = 0; i < names.Count; i++)
+            {
+                var node = _graph.FindByName(names[i]);
+                if (node == null)
+                {
+                    Debug.LogError($"[{nameof(MotherSpawner)}] 버스트 트리거 노드 '{names[i]}' 를 찾을 수 없다 " +
+                                   $"— StageDefinition._burstTriggerNodeIds 오타 확인", this);
+                    continue;
+                }
+                _burstTriggerNodeIds.Add(node.Id);
+            }
         }
 
         private void OnDisable()
@@ -117,8 +155,72 @@ namespace PMF.Actors
             if (_session != null) _session.OnEscorteeReachedNode -= OnEscorteeMoved;
         }
 
-        /// <summary>목적지 재계산은 이 이벤트로만. 매 프레임 재계산 금지.</summary>
-        private void OnEscorteeMoved(PathNode node) => RecalculateDestination();
+        /// <summary>목적지 재계산은 이 이벤트로만. 매 프레임 재계산 금지.
+        /// 버스트 진입도 여기서 — <b>노드 통과 이벤트</b>로 잡는다.
+        /// 거리 비교로 하면 배속에서 프레임이 건너뛰며 트리거를 놓친다 (G-20 함정).</summary>
+        private void OnEscorteeMoved(PathNode node)
+        {
+            RecalculateDestination();
+
+            if (node == null || _state == State.Burst) return;
+            if (!_burstTriggerNodeIds.Contains(node.Id)) return;
+            if (!_firedTriggers.Add(node.Id)) return;   // 같은 트리거로 두 번 진입하지 않는다
+
+            EnterBurst();
+        }
+
+        /// <summary>모체가 추적을 일시적으로 포기하고, 추적에 쓸 에너지를 생산에 몰빵한다 (회의 결정 13).
+        /// 별도 경고 UI 를 만들지 않는다 — <b>멈추는 것 자체가 예고</b>다. 색은 보조 신호일 뿐.</summary>
+        private void EnterBurst()
+        {
+            _state = State.Burst;
+            _burstTimer = _def.BurstDuration;
+            _burstSpawned = 0;
+
+            // 진행 중이던 예고·묶음은 접고 버스트 리듬으로 새로 시작한다.
+            _telegraphActive = false;
+            _telegraph.End();
+            transform.localScale = _baseScale;
+            _phase = SpawnPhase.Volley;
+            _volleyRemaining = _def.BurstVolleyCount;
+            _spacingTimer = 0f;
+
+            if (_sprite != null)
+                _sprite.color = Color.Lerp(_baseColor, new Color(1f, 0.45f, 0.1f), 0.55f);
+
+            Debug.Log($"[Burst] 진입 — {_def.BurstDuration:F1}초 동안 정지 + 생산 몰빵");
+        }
+
+        /// <summary>버스트 종료 → 추격 재개.
+        /// 총량 보존: 버스트로 앞당겨 내보낸 만큼을 <b>빈 구간</b>으로 갚는다 (G-20 작업 3).
+        /// 그 빈 구간이 정비 타이밍이다 — 버스트 중이 아니라 <b>버스트 직후</b>가 정비다.</summary>
+        private void ExitBurst()
+        {
+            _state = State.Chasing;
+
+            float normalRate = _def.NormalSpawnRate;
+            float expected = normalRate * _def.BurstDuration;      // 평시였다면 나왔을 마릿수
+            float debt = Mathf.Max(0f, _burstSpawned - expected);  // 앞당겨 쓴 양
+            float payback = normalRate > 0f ? debt / normalRate : 0f;
+
+            // 빈 구간 상한 — 완전 보존을 고집하면 밀도가 높을수록 침묵이 무한정 길어져
+            // 게임이 죽는다 (G-20 DoD "빈 구간이 과도하게 길어지지 않는다").
+            // 상한에 걸리면 총량이 조금 늘지만, 그 증가분은 여기서 의도적으로 감수한 것이다.
+            float paybackCap = _def.BurstDuration * 2f;
+            payback = Mathf.Min(payback, paybackCap);
+
+            _phase = SpawnPhase.Rest;
+            _restTimer = Mathf.Max(_def.SpawnRestSeconds, payback);
+            _volleyRemaining = 0;
+
+            // 정지로 벌어진 거리를 회수한다. 난이도 변수가 아니라 빈 구간 상한 장치다 (G-20 작업 5).
+            _recoveryTimer = _def.BurstRecoverySeconds;
+
+            if (_sprite != null) _sprite.color = _baseColor;
+
+            Debug.Log($"[Burst] 종료 — {_burstSpawned}마리 (평시 예상 {expected:F1}), " +
+                      $"빈 구간 {_restTimer:F1}초, 속도 회수 {_recoveryTimer:F1}초");
+        }
 
         private void Update()
         {
@@ -144,7 +246,10 @@ namespace PMF.Actors
                     break;
 
                 case State.Burst:
-                    // 골격만. 진입 조건은 비워 둔다 (GDD §7 — 프로토타입 범위 밖).
+                    // 이동하지 않는다. 추적에 쓸 에너지를 전부 생산에 돌린 상태 (G-20).
+                    _burstTimer -= Time.deltaTime;
+                    UpdateSpawnRhythm(Time.deltaTime);
+                    if (_burstTimer <= 0f) ExitBurst();
                     break;
             }
         }
@@ -176,9 +281,18 @@ namespace PMF.Actors
         {
             float dt = Time.deltaTime;
 
+            // 버스트 정지로 벌어진 거리를 잠깐 빠르게 회수한다 (G-20 작업 5).
+            // 에너지를 다시 추적에 몰빵하는 것이라 설정상 대칭이다. 난이도 변수가 아니다.
+            float speed = _def.MotherSpeed;
+            if (_recoveryTimer > 0f)
+            {
+                _recoveryTimer -= dt;
+                speed *= _def.BurstRecoverySpeedMultiplier;
+            }
+
             if (_def.MotherFollowsPath && _follower.HasRoute && !_follower.IsFinished)
             {
-                _follower.Advance(_def.MotherSpeed * dt);
+                _follower.Advance(speed * dt);
                 transform.position = _follower.Position;
             }
             else if (!_def.MotherFollowsPath)
@@ -186,7 +300,7 @@ namespace PMF.Actors
                 // D-06 실험용 직진 이동
                 Vector3 toEscortee = _escortee.transform.position - transform.position;
                 if (toEscortee.sqrMagnitude > 0.0001f)
-                    transform.position += toEscortee.normalized * (_def.MotherSpeed * dt);
+                    transform.position += toEscortee.normalized * (speed * dt);
             }
 
             UpdateSpawnRhythm(dt);
@@ -198,13 +312,18 @@ namespace PMF.Actors
         /// 웨이브제가 아니다 — 번호도 클리어 보너스도 없다. 호흡만 만든다 (GDD §4).</summary>
         private void UpdateSpawnRhythm(float dt)
         {
+            bool bursting = _state == State.Burst;
+            int volleyCount = bursting ? _def.BurstVolleyCount : _def.SpawnVolleyCount;
+            float restSeconds = bursting ? _def.BurstRestSeconds : _def.SpawnRestSeconds;
+
             if (_phase == SpawnPhase.Rest)
             {
                 _restTimer -= dt;
 
                 // 예고(G-10)는 묶음 시작 전 <b>한 번</b>이다. 마리마다 울리지 않는다.
                 // 예고 시간은 휴지에 포함된다 — 첫 묶음이 늦어지지 않는다.
-                if (!_telegraphActive && _restTimer <= _def.SpawnTelegraphSeconds && _restTimer > 0f)
+                // 버스트 중에는 울리지 않는다: 예고는 모체가 멈춘 것 자체다 (G-20 작업 6).
+                if (!bursting && !_telegraphActive && _restTimer <= _def.SpawnTelegraphSeconds && _restTimer > 0f)
                 {
                     _telegraphActive = true;
                     _telegraph.Show(_def.SpawnTelegraphSeconds, 1.2f);
@@ -225,7 +344,7 @@ namespace PMF.Actors
                 _telegraph.End();
                 transform.localScale = _baseScale;
                 _phase = SpawnPhase.Volley;
-                _volleyRemaining = _def.SpawnVolleyCount;
+                _volleyRemaining = volleyCount;
                 _spacingTimer = 0f;
             }
 
@@ -234,6 +353,7 @@ namespace PMF.Actors
             while (_volleyRemaining > 0 && _spacingTimer <= 0f)
             {
                 SpawnEnemy();
+                if (bursting) _burstSpawned++;
                 _volleyRemaining--;
                 if (_volleyRemaining > 0) _spacingTimer += _def.SpawnVolleySpacing;
             }
@@ -241,7 +361,7 @@ namespace PMF.Actors
             if (_volleyRemaining <= 0)
             {
                 _phase = SpawnPhase.Rest;
-                _restTimer = _def.SpawnRestSeconds;
+                _restTimer = restSeconds;
             }
         }
 

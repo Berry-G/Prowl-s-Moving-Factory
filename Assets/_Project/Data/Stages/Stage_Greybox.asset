@@ -49,6 +49,14 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   _motherFollowsPath: 1
+  _burstTriggerNodeIds:
+  - N06
+  - N10
+  _burstDuration: 10
+  _burstVolleyCount: 4
+  _burstRestSeconds: 2.5
+  _burstRecoverySpeedMultiplier: 1.6
+  _burstRecoverySeconds: 4
   _startingResource: 150
   _resourcePerSecond: 8
   _shortcutCost: 120

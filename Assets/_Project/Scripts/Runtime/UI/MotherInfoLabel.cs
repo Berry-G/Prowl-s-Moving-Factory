@@ -49,11 +49,13 @@ namespace PMF.UI
             _timer = RefreshInterval;
 
             float distance = Vector3.Distance(_mother.transform.position, _escortee.transform.position);
-            string rhythm = _mother.IsIdle
-                ? $"활동 시작 {_mother.SecondsToNextVolley:F1}s"
-                : _mother.IsVolleyFiring
-                    ? "묶음 진행 중"
-                    : $"다음 묶음 {_mother.SecondsToNextVolley:F1}s";
+            string rhythm = _mother.IsBursting
+                ? "모체 정지 — 대량 생산"
+                : _mother.IsIdle
+                    ? $"활동 시작 {_mother.SecondsToNextVolley:F1}s"
+                    : _mother.IsVolleyFiring
+                        ? "묶음 진행 중"
+                        : $"다음 묶음 {_mother.SecondsToNextVolley:F1}s";
 
             _text.text = $"모체 거리 {distance:F1}   {rhythm}";
         }

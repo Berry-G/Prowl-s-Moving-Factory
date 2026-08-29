@@ -269,6 +269,17 @@ namespace PMF.EditorTools
             so.FindProperty("_spawnVolleyCount").intValue = 3;
             so.FindProperty("_spawnVolleySpacing").floatValue = 0.4f;
             so.FindProperty("_spawnRestSeconds").floatValue = 8.2f;
+
+            // 버스트 (G-20) — 보호대상이 N06·N10 을 통과하면 모체가 멈추고 생산에 몰빵한다.
+            var triggers = so.FindProperty("_burstTriggerNodeIds");
+            triggers.arraySize = 2;
+            triggers.GetArrayElementAtIndex(0).stringValue = "N06";
+            triggers.GetArrayElementAtIndex(1).stringValue = "N10";
+            so.FindProperty("_burstDuration").floatValue = 10f;
+            so.FindProperty("_burstVolleyCount").intValue = 4;
+            so.FindProperty("_burstRestSeconds").floatValue = 2.5f;
+            so.FindProperty("_burstRecoverySpeedMultiplier").floatValue = 1.6f;
+            so.FindProperty("_burstRecoverySeconds").floatValue = 4f;
             // 스폰 테이블 (G-17) — 워커 70 / 스카우트 30 (G-18).
             var table = so.FindProperty("_spawnTable");
             table.arraySize = 2;

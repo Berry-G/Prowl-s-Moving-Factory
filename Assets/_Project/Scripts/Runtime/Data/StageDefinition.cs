@@ -30,6 +30,22 @@ namespace PMF.Data
         [SerializeField] private AnimationCurve _enemyHealthByProgress = AnimationCurve.Constant(0f, 1f, 1f);
         [SerializeField] private bool _motherFollowsPath = true;      // D-06 토글
 
+        [Header("버스트 (G-20) — 모체가 추적 에너지를 생산으로 전환")]
+        [Tooltip("보호대상이 이 노드들을 통과하면 버스트에 진입한다. 저작 오브젝트 이름 (예: N06).\n" +
+                 "같은 트리거로 두 번 진입하지 않는다. 오타는 시작 시 LogError 로 잡는다.")]
+        [SerializeField] private string[] _burstTriggerNodeIds = new string[0];
+        [Tooltip("버스트 지속 시간 (초, 게임시간). 8~12초가 시작점.")]
+        [SerializeField] private float _burstDuration = 10f;
+        [Tooltip("버스트 중 한 묶음 마릿수. 밀도만 올린다 — 총량은 뒤따르는 빈 구간으로 보존된다.")]
+        [SerializeField] private int _burstVolleyCount = 4;
+        [Tooltip("버스트 중 묶음 사이 휴지 (초, 게임시간).")]
+        [SerializeField] private float _burstRestSeconds = 2.5f;
+        [Tooltip("버스트가 끝나고 추격을 재개할 때의 속도 배율. 정지로 벌어진 거리를 회수한다.\n" +
+                 "⚠️ 난이도 변수가 아니다 — 빈 구간이 과도하게 길어지는 것만 막는 용도다.")]
+        [SerializeField] private float _burstRecoverySpeedMultiplier = 1.6f;
+        [Tooltip("위 배율이 유지되는 시간 (초, 게임시간).")]
+        [SerializeField] private float _burstRecoverySeconds = 4f;
+
         [Header("자원")]
         [SerializeField] private int _startingResource = 150;
         [SerializeField] private float _resourcePerSecond = 8f;
@@ -71,6 +87,17 @@ namespace PMF.Data
         /// <summary>한 사이클(묶음 + 휴지) 길이. HUD 게이지 정규화와 밀도 계산에 쓴다.</summary>
         public float SpawnCycleSeconds =>
             (SpawnVolleyCount - 1) * SpawnVolleySpacing + SpawnRestSeconds;
+
+        /// <summary>평시 스폰 밀도 (마리/초). 버스트 총량 보존 계산의 기준.</summary>
+        public float NormalSpawnRate =>
+            SpawnCycleSeconds > 0f ? SpawnVolleyCount / SpawnCycleSeconds : 0f;
+
+        public System.Collections.Generic.IReadOnlyList<string> BurstTriggerNodeIds => _burstTriggerNodeIds;
+        public float BurstDuration => Mathf.Max(0f, _burstDuration);
+        public int BurstVolleyCount => Mathf.Max(1, _burstVolleyCount);
+        public float BurstRestSeconds => Mathf.Max(0f, _burstRestSeconds);
+        public float BurstRecoverySpeedMultiplier => Mathf.Max(1f, _burstRecoverySpeedMultiplier);
+        public float BurstRecoverySeconds => Mathf.Max(0f, _burstRecoverySeconds);
         public System.Collections.Generic.IReadOnlyList<SpawnEntry> SpawnTable => _spawnTable;
         public bool MotherFollowsPath => _motherFollowsPath;
 

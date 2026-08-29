@@ -68,7 +68,7 @@ namespace PMF.Pathing
                 var coord = grid != null ? grid.WorldToCell(author.transform.position) : new GridCoord(0, 0);
                 Vector3 world = grid != null ? grid.CellToWorld(coord) : author.transform.position;
 
-                var node = new PathNode(i, coord, world);
+                var node = new PathNode(i, coord, world, author.name);
                 author.Attach(node);
                 _nodes.Add(node);
 
@@ -335,6 +335,15 @@ namespace PMF.Pathing
                 }
             }
             return resultNode;
+        }
+
+        /// <summary>이름으로 노드를 찾는다. 없으면 null — 부르는 쪽이 LogError 를 내라 (G-20).</summary>
+        public PathNode FindByName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            for (int i = 0; i < _nodes.Count; i++)
+                if (_nodes[i].Name == name) return _nodes[i];
+            return null;
         }
 
         public PathNode GetNode(int id) => (id >= 0 && id < _nodes.Count) ? _nodes[id] : null;
