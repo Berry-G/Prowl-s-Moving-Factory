@@ -266,6 +266,33 @@ namespace PMF.Session
             _hoverRange.Hide();
         }
 
+        /// <summary>정보 패널(G-15)의 [이동] 버튼. 갈 수 있는 칸을 하이라이트해서 보여준다.
+        /// 실제 이동은 기존 경로 그대로다 — 하이라이트된 칸을 클릭하면 <see cref="TryRedeploy"/> 가 돈다.
+        /// 새 모드를 만들지 않는 이유: 유닛이 선택된 상태의 맵 클릭은 이미 재배치 명령이다 (G-03).</summary>
+        public void BeginRedeployTargeting(AllyUnit unit)
+        {
+            if (unit == null) return;
+            if (!unit.CanRedeployNow)
+            {
+                ShowCooldownNotice(unit);
+                return;
+            }
+            ShowHighlights();
+        }
+
+        /// <summary>정보 패널(G-15)의 [업그레이드] 버튼.</summary>
+        public void RequestUpgrade(AllyUnit unit)
+        {
+            if (unit != null) TryUpgrade(unit);
+        }
+
+        /// <summary>이동 목적지 하이라이트를 끈다. 선택이 풀리면 정보 패널이 부른다.
+        /// 고용 흐름(SlotSelect) 중이면 그쪽 하이라이트이므로 건드리지 않는다.</summary>
+        public void EndRedeployTargeting()
+        {
+            if (_mode == Mode.Idle) ClearHighlights();
+        }
+
         /// <summary>재배치 명령 (G-03, ADR-0008 B안). 행군 시간 + 쿨다운 3.0초 — 자원은 안 든다.</summary>
         private void TryRedeploy(GridCoord coord, AllyUnit unit)
         {
@@ -288,6 +315,7 @@ namespace PMF.Session
                 return;
             }
 
+            EndRedeployTargeting();   // [이동] 버튼으로 켠 하이라이트를 끈다 (G-15)
             Debug.Log($"[Redeploy] {unit.name} -> {coord}");
         }
 

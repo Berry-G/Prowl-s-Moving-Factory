@@ -43,6 +43,15 @@ namespace PMF.Actors
 
         public bool IsDeployed => _state == State.Deployed;
 
+        /// <summary>배치 전 행군 중인가. 정보 패널(G-15) 상태 표시용.</summary>
+        public bool IsMarching => _state == State.Marching;
+
+        /// <summary>이 유닛의 정의(SO). <b>읽기 전용으로만 써라</b> — 런타임 수정 금지 (CLAUDE.md §4).</summary>
+        public UnitDefinition Definition => _def;
+
+        /// <summary>현재 티어가 반영된 전투 능력치. 정보 패널(G-15)이 사거리·공격력·간격을 읽는다.</summary>
+        public Attacker Attacker => _attacker;
+
         /// <summary>현재 점유 중(또는 행군 목표)인 슬롯. 슬롯 예약 해제(DeploymentController)에 쓴다.</summary>
         public GridCoord TargetSlot => _targetSlot;
 

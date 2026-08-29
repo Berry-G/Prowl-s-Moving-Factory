@@ -5025,6 +5025,7 @@ GameObject:
   - component: {fileID: 1735322932}
   - component: {fileID: 1735322936}
   - component: {fileID: 1735322937}
+  - component: {fileID: 1735322938}
   m_Layer: 0
   m_Name: Canvas
   m_TagString: Untagged
@@ -5146,6 +5147,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bbee3792fba0d6d49964cc503b5e3abb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PMF.Runtime::PMF.UI.HudTopBar
+--- !u!114 &1735322938
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1735322931}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 866c2497713feab4b81d520c1ed5fd8f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PMF.Runtime::PMF.UI.UnitInfoPanel
 --- !u!1 &1749576809
 GameObject:
   m_ObjectHideFlags: 0
