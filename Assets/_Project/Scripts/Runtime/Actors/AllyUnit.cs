@@ -199,25 +199,12 @@ namespace PMF.Actors
                 return;
             }
 
-            var goalNode = _graph.FindNearestNode(slotWorld, PathAgent.Ally);
-            if (goalNode == null)
-            {
-                Debug.LogError($"[{nameof(AllyUnit)}] 목적지 근처 노드 없음", this);
-                Deploy();
-                return;
-            }
-
-            var fromNode = village.DepartureNode ?? _graph.FindNearestNode(transform.position, PathAgent.Ally);
-            if (fromNode == null || !_graph.TryFindRoute(fromNode, goalNode, PathAgent.Ally, _route))
-            {
-                Debug.LogError($"[{nameof(AllyUnit)}] 행군 경로 탐색 실패: {fromNode} -> {goalNode}", this);
-                Deploy();
-                return;
-            }
-
-            _onStraightLeg = false;
-            _follower.SetRoute(_route, transform.position);
-            UpdateMarchLine();
+            // 여기에 오면 도로나 벽이 가로막은 것이다. 아군은 도로를 건널 수 없으므로 갈 방법이 없다.
+            // 도로 그래프로 우회시키지 않는다 — 그게 바로 "길을 건너는" 행위다.
+            // DeploymentController 가 CanWalkTo 로 미리 걸러야 하므로 여기까지 오면 배선 문제다.
+            Debug.LogError($"[{nameof(AllyUnit)}] {slot} 까지 갈 수 없다 (도로/벽이 가로막음). " +
+                           $"DeploymentController 가 먼저 걸렀어야 한다.", this);
+            Deploy();
         }
 
         /// <summary>행군 시작 시 공통 처리 (등록 정책·색).</summary>
@@ -230,19 +217,38 @@ namespace PMF.Actors
             if (_sprite != null) _sprite.color = _marchingColor;
         }
 
-        /// <summary>두 지점을 잇는 직선이 Blocked 칸을 지나지 않는가.
-        /// 격자 탐색(A*)이 아니다 — 선분 위를 샘플링해 막힌 칸만 확인한다 (ADR-0004 준수).</summary>
-        private bool IsStraightWalkClear(Vector3 from, Vector3 to)
+        /// <summary>두 지점을 잇는 직선을 아군이 걸어갈 수 있는가.
+        ///
+        /// <b>아군은 도로를 건널 수 없다</b> (2026-08-29 확정). 도로는 보호대상·모체·적의 통행로이고,
+        /// 아군은 자기 쪽 구역 안에서만 움직인다. 그래서 Road 와 Blocked 를 똑같이 막힌 칸으로 본다.
+        ///
+        /// 격자 탐색(A*)이 아니다 — 선분 위를 샘플링해 막힌 칸만 확인한다 (ADR-0004 준수).
+        /// 맵은 "마을에서 자기 담당 사각형 안 어느 칸으로도 직선이 닿는다"를 만족하도록 설계되어 있다
+        /// (GreyboxMapData 참조). 그래서 우회 경로 탐색이 애초에 필요 없다.</summary>
+        private bool IsStraightWalkClear(Vector3 from, Vector3 to) => CanWalk(from, to);
+
+        /// <summary>아군이 <paramref name="from"/> 에서 <paramref name="to"/> 까지 걸어갈 수 있는가.
+        /// 배치·재배치를 받아들일지 판단할 때 DeploymentController 도 이걸 쓴다.</summary>
+        public static bool CanWalk(Vector3 from, Vector3 to)
         {
+            var grid = GridSystem.Instance;
+            if (grid == null) return true;
+
             float distance = Vector3.Distance(from, to);
-            int steps = Mathf.CeilToInt(distance / (_grid.CellSize * 0.5f));
+            int steps = Mathf.CeilToInt(distance / (grid.CellSize * 0.5f));
             for (int i = 0; i <= steps; i++)
             {
                 Vector3 p = Vector3.Lerp(from, to, i / (float)Mathf.Max(steps, 1));
-                if (_grid.GetCell(_grid.WorldToCell(p)) == CellType.Blocked) return false;
+                var cell = grid.GetCell(grid.WorldToCell(p));
+                if (cell == CellType.Blocked || cell == CellType.Road) return false;
             }
             return true;
         }
+
+        /// <summary>이 위치에서 목적지 칸까지 아군이 갈 수 있는가.
+        /// DeploymentController 가 배치·재배치를 받아들일지 판단할 때 쓴다.</summary>
+        public bool CanWalkTo(GridCoord slot)
+            => IsStraightWalkClear(transform.position, _grid.CellToWorld(slot));
 
         /// <summary>재배치 (ADR-0008). Deployed·Marching 어느 상태에서든 재명령 가능.
         /// 새 슬롯까지 실제로 걸어간다 (순간이동 금지). 성공하면 이전 슬롯 예약 해제 이벤트를 발행한다.</summary>
@@ -283,28 +289,11 @@ namespace PMF.Actors
                 return true;
             }
 
-            var goalNode = _graph.FindNearestNode(newSlotWorld, PathAgent.Ally);
-            if (goalNode == null)
-            {
-                Debug.LogError($"[{nameof(AllyUnit)}] 재배치 목적지 근처 노드 없음: {newSlot}", this);
-                Deploy();
-                return false;
-            }
-
-            // 재배치는 마을 출발이 아니라 "현재 위치"에서 다시 잡는다.
-            // 경로 첫 노드를 현재 위치에서 가장 가까운 노드로 — PathFollower.SetRoute 의 route[0] 근접 규약.
-            var fromNode = _graph.FindNearestNode(transform.position, PathAgent.Ally);
-            if (fromNode == null || !_graph.TryFindRoute(fromNode, goalNode, PathAgent.Ally, _route))
-            {
-                Debug.LogError($"[{nameof(AllyUnit)}] 재배치 경로 탐색 실패: {fromNode} -> {goalNode}", this);
-                Deploy();
-                return false;
-            }
-
-            _onStraightLeg = false;
-            _follower.SetRoute(_route, transform.position);
-            UpdateMarchLine();
-            return true;
+            // 도로/벽이 가로막았다 = 아군이 갈 수 없는 칸이다. 우회시키지 않고 거절한다.
+            Debug.LogError($"[{nameof(AllyUnit)}] {newSlot} 로 재배치할 수 없다 (도로/벽이 가로막음). " +
+                           $"DeploymentController 가 먼저 걸렀어야 한다.", this);
+            Deploy();
+            return false;
         }
 
         /// <summary>회수 (G-04). 행군 중에도 가능. 슬롯 해제 + 레지스트리 해제 + 환불 이벤트 발행 후

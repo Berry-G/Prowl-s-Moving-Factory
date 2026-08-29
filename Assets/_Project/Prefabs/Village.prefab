@@ -107,3 +107,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: PMF.Runtime::PMF.Actors.Village
   _hireableUnits:
   - {fileID: 11400000, guid: 115f88998f3235e439c17523d814695c, type: 2}
+  - {fileID: 11400000, guid: c7ace03385b26da43ae021202865770b, type: 2}

@@ -21,11 +21,13 @@ namespace PMF.EditorTools
             public GameObject MotherPrefab;
             public GameObject EnemyPrefab;      // Robot_Walker
             public GameObject ScoutPrefab;      // Robot_Scout (Walker 의 프리팹 변형 — 색만 다르다)
-            public GameObject AllyPrefab;
+            public GameObject AllyPrefab;       // Ally_CatFolk
+            public GameObject RatPrefab;        // Ally_RatFolk
             public GameObject VillagePrefab;
             public StageDefinition Stage;
             public EnemyDefinition EnemyDef;    // Robot_Walker
             public EnemyDefinition ScoutDef;    // Robot_Scout
+            public UnitDefinition RatDef;       // Ally_RatFolk
             public UnitDefinition UnitDef;
             public Sprite Square;
             public Sprite Circle;
@@ -42,19 +44,22 @@ namespace PMF.EditorTools
 
             result.EnemyDef = CreateWalkerDefinition();
             result.ScoutDef = CreateScoutDefinition();
-            result.UnitDef = CreateUnitDefinition();
+            result.UnitDef = LoadOrCreateUnit("Ally_CatFolk", "고양이 수인", 1.6f, 7f, 0.45f, 45);
+            result.RatDef = LoadOrCreateUnit("Ally_RatFolk", "쥐 수인", 6f, 26f, 1.8f, 110);
             result.Stage = CreateStageDefinition(result.EnemyDef, result.ScoutDef);
 
             result.EscorteePrefab = CreateEscorteePrefab();
             result.MotherPrefab = CreateMotherPrefab();
             result.EnemyPrefab = CreateWalkerPrefab(result);
             result.ScoutPrefab = CreateScoutPrefabVariant(result.EnemyPrefab);
-            result.AllyPrefab = CreateAllyPrefab(result);
-            result.VillagePrefab = CreateVillagePrefab(result.UnitDef);
+            result.AllyPrefab = LoadOrCreateAllyPrefab(result, "Ally_CatFolk", new Color(0.55f, 0.75f, 1f));
+            result.RatPrefab = LoadOrCreateAllyPrefab(result, "Ally_RatFolk", new Color(0.75f, 0.7f, 1f));
+            result.VillagePrefab = CreateVillagePrefab(result.UnitDef, result.RatDef);
 
             WireDefinitionPrefabs(result.EnemyDef, result.EnemyPrefab,
                                   result.UnitDef, result.AllyPrefab);
             WirePrefab(result.ScoutDef, result.ScoutPrefab);
+            WireUnitPrefab(result.RatDef, result.RatPrefab);
 
             AssetDatabase.SaveAssets();
             return result;
@@ -85,6 +90,13 @@ namespace PMF.EditorTools
         }
 
         private static void WirePrefab(EnemyDefinition def, GameObject prefab)
+        {
+            var so = new SerializedObject(def);
+            so.FindProperty("_prefab").objectReferenceValue = prefab;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void WireUnitPrefab(UnitDefinition def, GameObject prefab)
         {
             var so = new SerializedObject(def);
             so.FindProperty("_prefab").objectReferenceValue = prefab;
@@ -153,11 +165,15 @@ namespace PMF.EditorTools
             return variant;
         }
 
-        private static GameObject CreateAllyPrefab(Result r)
+        /// <summary>병종 프리팹도 G-01 에서 2종으로 나뉘었다. 있으면 읽고, 없을 때만 만든다.</summary>
+        private static GameObject LoadOrCreateAllyPrefab(Result r, string prefabName, Color color)
         {
-            var go = new GameObject("Ally_Basic");
-            // 행군 중 연한 파랑 → 배치 후 진한 파랑은 런타임(AllyUnit)이 바꾼다.
-            AddSprite(go, r.Square, new Color(0.55f, 0.75f, 1f), "Actors", 0.5f);
+            string path = $"{PrefabRoot}/{prefabName}.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (existing != null) return existing;   // 있으면 손대지 않는다
+
+            var go = new GameObject(prefabName);
+            AddSprite(go, r.Square, color, "Actors", 0.5f);
 
             var line = go.AddComponent<LineRenderer>();
             line.material = new Material(Shader.Find("Sprites/Default"));
@@ -170,19 +186,21 @@ namespace PMF.EditorTools
             go.AddComponent<Health>();
             go.AddComponent<Attacker>();
             go.AddComponent<AllyUnit>();
-            return SaveAsPrefab(go, $"{PrefabRoot}/Ally_Basic.prefab");
+            return SaveAsPrefab(go, path);
         }
 
-        private static GameObject CreateVillagePrefab(UnitDefinition unitDef)
+        private static GameObject CreateVillagePrefab(UnitDefinition catDef, UnitDefinition ratDef)
         {
             var go = new GameObject("Village");
             AddSprite(go, GreyboxSprites.GetOrCreateSquare(), new Color(0.2f, 0.75f, 0.3f), "Deploy", 1.4f);
             var village = go.AddComponent<Village>();
 
+            // 두 마을 모두 병종 2종을 다 고용할 수 있다 (G-01). 자리 차이는 위치가 만든다.
             var so = new SerializedObject(village);
             var array = so.FindProperty("_hireableUnits");
-            array.arraySize = 1;
-            array.GetArrayElementAtIndex(0).objectReferenceValue = unitDef;
+            array.arraySize = 2;
+            array.GetArrayElementAtIndex(0).objectReferenceValue = catDef;
+            array.GetArrayElementAtIndex(1).objectReferenceValue = ratDef;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return SaveAsPrefab(go, $"{PrefabRoot}/Village.prefab");
@@ -229,21 +247,24 @@ namespace PMF.EditorTools
             return def;
         }
 
-        private static UnitDefinition CreateUnitDefinition()
+        /// <summary>병종 정의는 G-01 에서 2종(고양이·쥐)으로 확정됐다. 여기서 만들지 않고 <b>있는 것을 읽는다</b>.
+        /// 없으면 최소 뼈대만 만든다 — 수치는 SO 에서 저작한다.</summary>
+        private static UnitDefinition LoadOrCreateUnit(string assetName, string displayName,
+                                                       float range, float damage, float interval, int cost)
         {
-            string path = $"{DataRoot}/Units/Ally_Basic.asset";
+            string path = $"{DataRoot}/Units/{assetName}.asset";
             var def = AssetDatabase.LoadAssetAtPath<UnitDefinition>(path);
-            if (def != null) return def;
+            if (def != null) return def;   // 있으면 손대지 않는다 — 튜닝값 보호
 
             def = ScriptableObject.CreateInstance<UnitDefinition>();
             var so = new SerializedObject(def);
-            so.FindProperty("_displayName").stringValue = "Ally_Basic";
-            so.FindProperty("_moveSpeed").floatValue = 2.5f;
+            so.FindProperty("_displayName").stringValue = displayName;
+            so.FindProperty("_moveSpeed").floatValue = 1.12f;
             so.FindProperty("_maxHealth").floatValue = 50f;
-            so.FindProperty("_attackRange").floatValue = 3.5f;
-            so.FindProperty("_attackDamage").floatValue = 10f;
-            so.FindProperty("_attackInterval").floatValue = 0.8f;
-            so.FindProperty("_hireCost").intValue = 50;
+            so.FindProperty("_attackRange").floatValue = range;
+            so.FindProperty("_attackDamage").floatValue = damage;
+            so.FindProperty("_attackInterval").floatValue = interval;
+            so.FindProperty("_hireCost").intValue = cost;
             so.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.CreateAsset(def, path);
             return def;
@@ -253,11 +274,15 @@ namespace PMF.EditorTools
         {
             const string path = StageAssetPath;
             var def = AssetDatabase.LoadAssetAtPath<StageDefinition>(path);
-            if (def == null)
-            {
-                def = ScriptableObject.CreateInstance<StageDefinition>();
-                AssetDatabase.CreateAsset(def, path);
-            }
+
+            // ⚠️ 이미 있으면 <b>손대지 않는다.</b>
+            // 여기 적힌 숫자는 "처음 만들 때의 시작값"이지 정답이 아니다. 밸런스는 SO 에서 튜닝하며(G-21),
+            // 씬을 다시 만들 때마다 덮어쓰면 그 튜닝이 조용히 날아간다.
+            // 2026-08-29 실제로 당했다: 씬 재구축 한 번에 G-21 속도 조정이 전부 원복됐다.
+            if (def != null) return def;
+
+            def = ScriptableObject.CreateInstance<StageDefinition>();
+            AssetDatabase.CreateAsset(def, path);
 
             var so = new SerializedObject(def);
             so.FindProperty("_escorteeSpeed").floatValue = 1.2f;

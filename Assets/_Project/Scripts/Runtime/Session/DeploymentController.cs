@@ -151,7 +151,9 @@ namespace PMF.Session
             _selectedVillage = village;
             _mode = Mode.UnitSelect;
             GameClock.Instance?.EnterUiSlowMotion();   // 배치 조작 전체(고용~슬롯 선택)는 정밀 조작이 필요한 UI 취급.
-            ShowHighlights();   // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
+            // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
+            // 기준점은 마을 — 이 마을에서 걸어갈 수 있는 칸만 나온다.
+            ShowHighlights(village.transform.position);
 
             var wallet = GameSession.Instance.Wallet;
             _hirePanel.Show(village.HireableUnits, wallet, OnUnitPicked, OnUnitHovered);
@@ -176,6 +178,14 @@ namespace PMF.Session
             if (!GridSystem.Instance.IsBuildable(coord) || _reservedSlots.Contains(coord))
             {
                 Debug.Log("[Deployment] 배치할 수 없는 칸");
+                return;
+            }
+
+            // 아군은 도로를 건널 수 없다 — 마을에서 걸어갈 수 없는 칸이면 고용 자체를 받지 않는다.
+            if (!AllyUnit.CanWalk(_selectedVillage.transform.position, GridSystem.Instance.CellToWorld(coord)))
+            {
+                ShowNotice(GridSystem.Instance.CellToWorld(coord), "길 건너편");
+                Debug.Log($"[Deployment] {coord} 는 도로 건너편이라 갈 수 없다");
                 return;
             }
 
@@ -294,7 +304,7 @@ namespace PMF.Session
                 ShowCooldownNotice(unit);
                 return;
             }
-            ShowHighlights();
+            ShowHighlights(unit.transform.position);   // 재배치는 유닛의 현재 위치가 기준이다
         }
 
         /// <summary>정보 패널(G-15)의 [업그레이드] 버튼.</summary>
@@ -325,6 +335,14 @@ namespace PMF.Session
                 return;
             }
 
+            // 도로 건너편으로는 옮길 수 없다.
+            if (!unit.CanWalkTo(coord))
+            {
+                ShowNotice(GridSystem.Instance.CellToWorld(coord), "길 건너편");
+                Debug.Log($"[Redeploy] {coord} 는 도로 건너편이라 갈 수 없다");
+                return;
+            }
+
             _reservedSlots.Add(coord);
             if (!unit.BeginRedeploy(coord))
             {
@@ -341,11 +359,16 @@ namespace PMF.Session
         {
             float remain = unit.RedeployCooldownRemaining;
             Debug.Log($"[Redeploy] 이동 쿨다운 {remain:F1}초 남음");
+            ShowNotice(unit.transform.position, $"이동 {remain:F1}초 후");
+        }
 
-            var go = new GameObject("RedeployCooldownNotice");
-            go.transform.position = unit.transform.position + Vector3.up * 0.8f;
+        /// <summary>거절 이유를 그 자리에 잠깐 띄운다. 왜 안 되는지 화면에서 읽혀야 한다.</summary>
+        private void ShowNotice(Vector3 worldPosition, string text)
+        {
+            var go = new GameObject("DeployNotice");
+            go.transform.position = worldPosition + Vector3.up * 0.8f;
             var label = go.AddComponent<TextMesh>();
-            label.text = $"이동 {remain:F1}초 후";
+            label.text = text;
             label.fontSize = 28;
             label.characterSize = 0.1f;
             label.anchor = TextAnchor.MiddleCenter;
@@ -388,8 +411,11 @@ namespace PMF.Session
             Debug.Log($"[Upgrade] {unit.name} → Lv{unit.TierLevel + 1} (비용 {cost}, 공격 {unit.GetComponent<Combat.Attacker>().Damage} · 사거리 {unit.GetComponent<Combat.Attacker>().Range})");
         }
 
-        /// <summary>Buildable && 미예약 칸 하이라이트 (반투명 하늘색 오버레이).</summary>
-        private void ShowHighlights()
+        /// <summary>Buildable && 미예약 && <b>origin 에서 걸어갈 수 있는</b> 칸 하이라이트.
+        ///
+        /// 아군은 도로를 건널 수 없다. 갈 수도 없는 칸을 칠해 놓으면 눌러 보고서야 거절당한다.
+        /// 그래서 하이라이트 단계에서 미리 거른다 — 보이는 것이 곧 갈 수 있는 곳이다.</summary>
+        private void ShowHighlights(Vector3 origin)
         {
             ClearHighlights();
 
@@ -401,6 +427,7 @@ namespace PMF.Session
                     var coord = new GridCoord(x, y);
                     if (grid.GetCell(coord) != CellType.Buildable) continue;
                     if (_reservedSlots.Contains(coord)) continue;
+                    if (!AllyUnit.CanWalk(origin, grid.CellToWorld(coord))) continue;
 
                     var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     Destroy(quad.GetComponent<Collider>());   // 물리 미사용 (ADR-0005)

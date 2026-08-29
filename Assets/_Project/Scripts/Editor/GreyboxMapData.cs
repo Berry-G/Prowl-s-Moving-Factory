@@ -25,23 +25,35 @@ namespace PMF.EditorTools
             new Vector2Int(24, 6), new Vector2Int(30, 6),   // S7 가로
         };
 
-        // --- Buildable 사각형들 (비대칭: A 28 > B 12) ---
-        // G-01 (2026-08-27): 근접 병종(고양이 수인) 사거리 1.6 이 경로에 닿으려면 Buildable 이 도로에
-        // **인접(셀 중심 거리 1.0)** 해야 한다. 기존 rects 는 모두 도로에서 2칸 떨어져 있어서
-        // 근접이 경로 전체를 커버하지 못했다 (147 샘플 중 126 미커버 실측). → 도로 쪽으로 확장.
-        // 사거리는 절대 올리지 않는다 (TASKS G-01 확정 처방 ①).
-        public static readonly RectInt BuildableA = new RectInt(2, 10, 6, 5);   // 아래로 확장 — S1 도로(y=9)에 인접
-        public static readonly RectInt BuildableB = new RectInt(9, 5, 7, 4);    // 왼쪽·아래로 확장 — S2(x=8)·S3(y=4)에 인접
-        public static readonly RectInt BuildableC = new RectInt(25, 7, 5, 5);   // 왼쪽·아래로 확장 — S6(x=24)·S7(y=6)에 인접
-        public static readonly RectInt BuildableD = new RectInt(17, 9, 3, 4);   // 신규 — S4(x=16)·S5(y=13)에 인접
-        public static readonly RectInt BuildableE = new RectInt(20, 12, 4, 1);  // 신규 — S5(y=13)·S6(x=24)에 인접
+        // --- Buildable 사각형들 ---
+        //
+        // 2026-08-29 재설계 — 규칙 두 가지가 배치를 강제한다.
+        //   1) 마을은 **2개**다.
+        //   2) 아군은 **도로를 건널 수 없다.** 마을에서 배치 칸까지 직선이 도로를 지나면 안 된다.
+        //      (그리드 패스파인딩은 금지 — ADR-0004. 그래서 "직선으로 닿는가"가 곧 도달 가능 여부다.)
+        //
+        // 옛 배치는 이 규칙에서 무너졌다. 실측: Village_3(26,4) 은 배치 칸 97개 중 **2개**밖에 못 갔다.
+        // 마을 후보를 전수 계산해 도로 51칸을 100% 덮는 조합 (10,13) + (27,9) 를 골랐다.
+        //
+        // 각 사각형은 도로를 하나도 포함하지 않고, 담당 마을에서 직선으로 전부 닿는다.
+        // 근접(사거리 1.6)이 쓸모 있으려면 도로에 인접해야 한다는 G-01 처방은 그대로 지킨다.
 
-        // --- 마을 슬롯 3곳 ---
+        // 마을1(10,13) 담당 — 도로 S1(y=9)·S2(x=8)·S3(y=4)·S4(x=16)·S5(y=13) 를 덮는다.
+        public static readonly RectInt BuildableA = new RectInt(1, 10, 7, 4);    // S1 북쪽
+        public static readonly RectInt BuildableB = new RectInt(9, 5, 7, 4);     // S2 동쪽 · S3 북쪽
+        public static readonly RectInt BuildableC = new RectInt(9, 10, 7, 4);    // S1 북쪽~S4 서쪽 (마을1 포함)
+        public static readonly RectInt BuildableD = new RectInt(16, 14, 6, 2);   // S5 북쪽
+
+        // 마을2(27,9) 담당 — 도로 S6(x=24)·S7(y=6) 를 덮는다.
+        public static readonly RectInt BuildableE = new RectInt(25, 7, 6, 6);
+
+        // --- 마을 슬롯 2곳 ---
+        // 각 마을은 자기 담당 사각형 **안에** 있다. 사각형은 볼록하므로 마을에서 그 안 어느 칸으로도
+        // 직선이 사각형을 벗어나지 않는다 = 도로를 건널 일이 없다.
         public static readonly Vector2Int[] Villages =
         {
-            new Vector2Int(4, 10),   // 시작 근처
-            new Vector2Int(12, 10),  // 중앙 위
-            new Vector2Int(26, 4),   // 우측 아래
+            new Vector2Int(10, 13),  // 서쪽 — 경로 전반부(S1~S5)를 담당
+            new Vector2Int(27, 9),   // 동쪽 — 경로 후반부(S6~S7, 탈출 직전)를 담당
         };
 
         // --- Blocked 덩어리 3개 ---
