@@ -70,8 +70,8 @@ namespace PMF.UI
         {
             if (_timer <= 0f) return;
 
-            // 대상이 도중에 죽으면 선을 즉시 지운다.
-            if (_target == null || !_target.IsAlive)
+            // 대상이 도중에 죽거나 파괴되면 선을 즉시 지운다 (DamageableExtensions 참조).
+            if (!_target.IsUsable() || !_target.IsAlive)
             {
                 _timer = 0f;
                 _line.enabled = false;

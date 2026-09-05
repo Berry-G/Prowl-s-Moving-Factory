@@ -13,6 +13,7 @@ namespace PMF.Combat
         private bool _isAlive = true;
         private bool _invincible;
         private bool _initialized;
+        private bool _isBoss;
 
         /// <summary>false 면 TargetRegistry 에 등록하지 않는다 (행군 중 아군 등).</summary>
         private bool _registryEnabled = true;
@@ -22,6 +23,9 @@ namespace PMF.Combat
         public Team Team => _team;
         public Vector3 Position => transform.position;
         public bool IsAlive => _isAlive;
+
+        /// <summary>보스인가. 처형(ADR-0020)의 예외 대상이다. <see cref="Initialize"/> 에서 정해진다.</summary>
+        public bool IsBoss => _isBoss;
 
         public event Action<Health> OnDied;
         public event Action<Health, float> OnDamaged;   // (self, amount)
@@ -55,7 +59,8 @@ namespace PMF.Combat
         /// 기본값이다. 다시 등록하지 않으면 모든 Health 가 기본값 팀 리스트에 눌러앉는다.
         /// 실제로 보호대상이 Enemy 리스트에 남아 있었고, 그 결과
         /// <b>적은 보호대상을 찾지 못하고 아군은 보호대상을 때렸다</b> (2026-08-29).</summary>
-        public void Initialize(float max, Team team)
+        /// <param name="isBoss">보스는 처형되지 않고 치명타를 받는다 (ADR-0020).</param>
+        public void Initialize(float max, Team team, bool isBoss = false)
         {
             TargetRegistry.UnregisterFromAll(this);   // 팀을 바꾸기 전에, 어느 리스트에 있든 뺀다
 
@@ -64,6 +69,7 @@ namespace PMF.Combat
             _team = team;
             _isAlive = true;
             _initialized = true;
+            _isBoss = isBoss;
 
             if (_registryEnabled && isActiveAndEnabled) TargetRegistry.Register(this);
         }
@@ -79,6 +85,23 @@ namespace PMF.Combat
 
         /// <summary>F4 치트용 무적 토글.</summary>
         public void SetInvincible(bool invincible) => _invincible = invincible;
+
+        /// <summary>체력 회복. 최대치를 넘지 않고, 죽은 대상은 되살리지 않는다.
+        ///
+        /// <b>맹독(ADR-0020)이 걸려 있으면 아무 일도 일어나지 않는다.</b> 지금 이 프로젝트에 회복 수단은
+        /// 없지만(지속 힐러는 기각, 일회성 회복은 미구현), "맹독 = 회복 불가" 라는 규칙이 성립하려면
+        /// 회복이 반드시 이 문을 지나야 한다. 나중에 회복을 만들 때 이 메서드를 쓸 것 —
+        /// <c>_current</c> 를 직접 건드리면 맹독이 조용히 무력화된다.</summary>
+        /// <returns>실제로 회복된 양. 막혔으면 0.</returns>
+        public float Heal(float amount)
+        {
+            if (!_isAlive || amount <= 0f) return 0f;
+            if (StatusEffects.IsHealingBlocked(this)) return 0f;
+
+            float before = _current;
+            _current = Mathf.Min(_maxHealth, _current + amount);
+            return _current - before;
+        }
 
         public void TakeDamage(float amount, object source)
         {

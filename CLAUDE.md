@@ -120,12 +120,60 @@ Assets/_Project/
 - **싱글턴 남발 금지.** 씬 단일 서비스는 `GridSystem`, `PathGraph`, `GameSession`, `GameClock` **4개만** 허용. 그 외에는 `[SerializeField]` 참조 주입.
 - **`Find`/`GetComponent` 를 `Update` 안에서 호출 금지.** 전부 `Awake`/`Start` 에 캐시.
 - **`Time.timeScale` 직접 대입 금지.** `GameClock` 을 통해서만 바꾼다.
+- **윈도우형 UI 를 띄우면 반드시 0.1배속을 건다.** 아래 §4-1 을 읽어라. 이 규칙은 세 번 새어 나갔다.
 - **ScriptableObject 필드를 런타임에 수정 금지.** 에디터에서 영구 변경되어 밸런스가 조용히 오염된다. SO는 읽기 전용 정의(Definition)이고, 가변 상태는 런타임 인스턴스 클래스가 따로 갖는다.
 - **매직 넘버 금지.** 밸런스 수치는 전부 ScriptableObject 로 뺀다. 예외: 0, 1, 그리고 명백한 수학 상수.
 - **외부 에셋/패키지 임의 도입 금지.** DOTween, Odin, A* Pathfinding Project 등. 필요하면 물어라.
 - **씬 임의 생성 금지.** 프로토타입 씬은 `Stage_Greybox.unity` 하나다.
 - **아트 에셋 생성 금지.** 그레이박스는 Unity 기본 스프라이트(흰 사각/원)와 색상만 쓴다.
 - **`.meta` 파일을 손으로 만들거나 지우지 마라.** Unity 에디터에 맡긴다.
+
+### 4-1. 윈도우형 UI = 0.1배속 (예외 없음)
+
+**화면에 창이 뜨면 게임은 반드시 0.1배속으로 느려진다.** 2026-08-30 확정 규칙 6이다.
+
+정밀 조작을 요구하는 창을 띄워 놓고 게임이 제 속도로 굴러가면, 플레이어는 **창을 읽는 대가로
+판을 잃는다.** 그러면 창을 안 보게 되고, 그 창은 만든 의미가 없어진다.
+
+**적용 대상 — "버튼을 눌러야 하는 창"이면 전부다.**
+
+| 창 | 담당 |
+|---|---|
+| 고용 패널 (마을 클릭 ~ 슬롯 선택) | `DeploymentController` |
+| 지름길 구매 확인 | `ShortcutPanel` |
+| 유닛 정보 패널 (이동·회수·강화) | `UnitInfoPanel` |
+| 일시정지 메뉴 · 설정 · 난이도 확인 | `GameClock.Pause()` — **0배속이라 이미 더 강하다** |
+
+체력바·자원 표시·디버그 오버레이 같은 **HUD 는 해당 없다.** 누를 것이 없으면 창이 아니다.
+
+**지키는 방법 — 새 창을 만들 때 이 3줄을 복사해 넣어라.**
+
+```csharp
+private bool _slowMotionHeld;   // 이 창이 들고 있는 토큰. 소유자당 하나뿐이다.
+
+private void AcquireSlowMotion()
+{
+    if (_slowMotionHeld) return;          // 두 번 열려도 Enter 는 한 번
+    _slowMotionHeld = true;
+    GameClock.Instance?.EnterUiSlowMotion();
+}
+
+private void ReleaseSlowMotion()
+{
+    if (!_slowMotionHeld) return;
+    _slowMotionHeld = false;
+    GameClock.Instance?.ExitUiSlowMotion();
+}
+
+private void OnDisable() => ReleaseSlowMotion();   // 씬이 내려갈 때 걸린 채 남지 않게
+```
+
+- `GameClock` 의 슬로우모션은 **참조 계수**다. 창이 겹쳐도 마지막 창이 닫힐 때만 속도가 돌아온다.
+- 그래서 **Enter 와 Exit 의 짝이 생명이다.** 짝이 어긋나면 `ExitUiSlowMotion` 이 `LogError` 를 뱉는다.
+  콘솔에 그 에러가 보이면 어딘가에서 창을 여닫는 경로 하나가 빠진 것이다.
+- 닫는 경로를 **전부** 세어라: 확인 / 취소 / ESC / 우클릭 / 대상 소멸 / 선택 변경 / `OnDisable`.
+
+근거: ADR-0019, `.docs/HANDOFF-2026-08-30.md` §4 확정 규칙 6.
 
 ### 좌표 규칙 (가장 중요)
 
@@ -170,6 +218,7 @@ Assets/_Project/
 | `.docs/TASKS-P1-prototype.md` | 프로토타입 실행 태스크 (순서대로). **단계 7(G-00~G-21)이 P-21 게이트보다 먼저다** |
 | `.docs/TASKS-P2.md` | P2 태스크 (Q-01~Q-14). **P-21 게이트 통과 전 착수 금지** |
 | `.docs/회의록/*.md` | 회의 기록과 확정 결정. **날짜별. 결정 번호로 참조한다** |
+| `.docs/PLAN-authoring-pipeline.md` | **기획자 저작 파이프라인 계획** — 맵·스폰을 텍스트 파일로 옮기는 단계별 계획 (S-01~S-05) |
 | `.docs/PMF-todo.md` | 팀·사업·로드맵 레벨 할 일 |
 | `.docs/adr/*.md` | 결정과 그 이유 |
 

@@ -44,8 +44,8 @@ namespace PMF.EditorTools
 
             result.EnemyDef = CreateWalkerDefinition();
             result.ScoutDef = CreateScoutDefinition();
-            result.UnitDef = LoadOrCreateUnit("Ally_CatFolk", "고양이 수인", 1.6f, 7f, 0.45f, 45);
-            result.RatDef = LoadOrCreateUnit("Ally_RatFolk", "쥐 수인", 6f, 26f, 1.8f, 110);
+            result.UnitDef = LoadOrCreateUnit("Ally_CatFolk", "고양이 수인", 1.6f, 7f, 0.45f, 45, isMelee: true);
+            result.RatDef = LoadOrCreateUnit("Ally_RatFolk", "쥐 수인", 6f, 26f, 1.8f, 110, isMelee: false);
             result.Stage = CreateStageDefinition(result.EnemyDef, result.ScoutDef);
 
             result.EscorteePrefab = CreateEscorteePrefab();
@@ -250,7 +250,8 @@ namespace PMF.EditorTools
         /// <summary>병종 정의는 G-01 에서 2종(고양이·쥐)으로 확정됐다. 여기서 만들지 않고 <b>있는 것을 읽는다</b>.
         /// 없으면 최소 뼈대만 만든다 — 수치는 SO 에서 저작한다.</summary>
         private static UnitDefinition LoadOrCreateUnit(string assetName, string displayName,
-                                                       float range, float damage, float interval, int cost)
+                                                       float range, float damage, float interval, int cost,
+                                                       bool isMelee)
         {
             string path = $"{DataRoot}/Units/{assetName}.asset";
             var def = AssetDatabase.LoadAssetAtPath<UnitDefinition>(path);
@@ -265,6 +266,7 @@ namespace PMF.EditorTools
             so.FindProperty("_attackDamage").floatValue = damage;
             so.FindProperty("_attackInterval").floatValue = interval;
             so.FindProperty("_hireCost").intValue = cost;
+            so.FindProperty("_isMelee").boolValue = isMelee;   // 근접이면 적에게 붙으러 간다 + 물을 못 넘는다 (G-22)
             so.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.CreateAsset(def, path);
             return def;
@@ -316,12 +318,29 @@ namespace PMF.EditorTools
             scout.FindPropertyRelative("_weight").intValue = 30;
             so.FindProperty("_motherFollowsPath").boolValue = true;
             so.FindProperty("_startingResource").intValue = 150;
-            so.FindProperty("_resourcePerSecond").floatValue = 8f;
+            so.FindProperty("_resourcePerSecond").floatValue = 8f;   // 난이도 표가 비었을 때만 쓰는 폴백
             so.FindProperty("_shortcutCost").intValue = 120;
+
+            // 난이도 3종 (G-23). 여기 숫자는 "처음 만들 때의 시작값"이지 정답이 아니다 — 튜닝은 SO 에서 한다.
+            var difficulties = so.FindProperty("_difficulties");
+            difficulties.arraySize = 3;
+            SeedDifficulty(difficulties.GetArrayElementAtIndex(0), 0, "쉬움",   4.5f, 3f);
+            SeedDifficulty(difficulties.GetArrayElementAtIndex(1), 1, "보통",   4.5f, 0f);
+            SeedDifficulty(difficulties.GetArrayElementAtIndex(2), 2, "어려움", 3f,   0f);
             so.FindProperty("_alliesCanDieWhileMarching").boolValue = false;
             so.FindProperty("_enemiesTargetAllies").boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();
             return def;
+        }
+
+        /// <summary>난이도 한 줄 채우기 (G-23). enumValueIndex 는 <see cref="PMF.Data.Difficulty"/> 선언 순서다.</summary>
+        private static void SeedDifficulty(SerializedProperty element, int difficulty, string displayName,
+                                           float killReward, float resourcePerSecond)
+        {
+            element.FindPropertyRelative("_difficulty").enumValueIndex = difficulty;
+            element.FindPropertyRelative("_displayName").stringValue = displayName;
+            element.FindPropertyRelative("_killReward").floatValue = killReward;
+            element.FindPropertyRelative("_resourcePerSecond").floatValue = resourcePerSecond;
         }
     }
 }

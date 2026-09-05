@@ -55,12 +55,20 @@ namespace PMF.Pathing
 
             // 이 메서드는 <b>엣지 중간에 호출되는 것이 정상</b>이다(위 요약 참조).
             // route[0] 에 정확히 서 있으라고 요구하면 그 정상 사용까지 전부 경고가 된다.
-            // 실측(2026-08-29): 한 판에 40건 — 전부 오탐이었다.
-            // 허용 범위를 첫 엣지 길이로 둔다. 그보다 멀면 경로가 엉뚱한 곳에서 시작한 것이니 진짜 버그다.
+            //
+            // 허용 범위를 "나가는 엣지"(route[0]→route[1]) 길이로 잡았더니 여전히 오탐이 났다
+            // (2026-08-30 실측: 한 판에 47건). 재계산 시점의 액터는 route[0] 을 <b>다음 목표</b>로
+            // 삼고 <b>들어오는 엣지</b> 위에 서 있기 때문이다 — 나가는 엣지 길이와는 상관이 없다.
+            // 그래서 route[0] 에 붙은 엣지 중 가장 긴 것을 상한으로 쓴다. 액터가 정상적으로 있을 수
+            // 있는 최대 거리가 그것이다. 그보다 멀면 경로가 엉뚱한 곳에서 시작한 것이니 진짜 버그다.
             const float snapEpsilon = 0.05f;
-            float tolerance = _route.Count > 1
-                ? Mathf.Max(snapEpsilon, Vector3.Distance(_route[0].WorldPosition, _route[1].WorldPosition))
-                : snapEpsilon;
+            float tolerance = snapEpsilon;
+            var incident = _route[0].Edges;
+            for (int i = 0; i < incident.Count; i++)
+                if (incident[i].Cost > tolerance) tolerance = incident[i].Cost;
+            if (_route.Count > 1)
+                tolerance = Mathf.Max(tolerance,
+                                      Vector3.Distance(_route[0].WorldPosition, _route[1].WorldPosition));
             if (Vector3.SqrMagnitude(_route[0].WorldPosition - startPosition) > tolerance * tolerance)
                 Debug.LogWarning($"[PathFollower] route[0]({_route[0]}) 이 startPosition({startPosition}) 에서 " +
                                  $"첫 엣지 길이({tolerance:F1})보다 멀다. 호출자 경로를 점검하라.");

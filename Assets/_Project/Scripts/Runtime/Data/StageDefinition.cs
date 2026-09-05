@@ -48,8 +48,12 @@ namespace PMF.Data
 
         [Header("자원")]
         [SerializeField] private int _startingResource = 150;
+        [Tooltip("난이도 표가 비어 있을 때만 쓰는 폴백. 평소 수입은 난이도가 정한다 (G-23).")]
         [SerializeField] private float _resourcePerSecond = 8f;
         [SerializeField] private int _shortcutCost = 120;
+
+        [Tooltip("난이도별 경제 수치 (G-23). 쉬움/보통/어려움 3줄. 비어 있으면 위 폴백 값으로 돈다.")]
+        [SerializeField] private DifficultyTier[] _difficulties = System.Array.Empty<DifficultyTier>();
 
         [Header("배치 UI")]
         [Tooltip("배치 UI(고용 패널 등)가 떠 있는 동안의 슬로우모션 배속. 감각 수치 — P-21 에서 튜닝 대상.")]
@@ -114,6 +118,29 @@ namespace PMF.Data
         public int StartingResource => _startingResource;
         public float ResourcePerSecond => _resourcePerSecond;
         public int ShortcutCost => _shortcutCost;
+
+        /// <summary>난이도 표 (G-23). 화면에 나열하는 순서가 이 순서다.</summary>
+        public System.Collections.Generic.IReadOnlyList<DifficultyTier> Difficulties => _difficulties;
+
+        /// <summary>이 난이도의 경제 수치. 표에 없으면 폴백 —
+        /// 처치 보상 0 + 기존 <see cref="ResourcePerSecond"/> 로, 난이도 도입 전과 같게 돈다.
+        /// (SO 를 아직 채우지 않은 테스트·구 에셋이 조용히 무보수가 되지 않게 하려는 것이다.)</summary>
+        public DifficultyTier TierFor(Difficulty difficulty)
+        {
+            for (int i = 0; i < _difficulties.Length; i++)
+                if (_difficulties[i].Difficulty == difficulty) return _difficulties[i];
+
+            var fallback = new DifficultyTier();
+            return fallback;
+        }
+
+        /// <summary>표에 이 난이도가 실제로 있는가. 없으면 호출자가 폴백 수치를 써야 한다.</summary>
+        public bool HasTierFor(Difficulty difficulty)
+        {
+            for (int i = 0; i < _difficulties.Length; i++)
+                if (_difficulties[i].Difficulty == difficulty) return true;
+            return false;
+        }
 
         public bool AlliesCanDieWhileMarching => _alliesCanDieWhileMarching;
         public bool EnemiesTargetAllies => _enemiesTargetAllies;

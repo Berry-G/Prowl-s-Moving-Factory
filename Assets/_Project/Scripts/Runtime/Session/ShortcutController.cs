@@ -80,6 +80,11 @@ namespace PMF.Session
             if (_deployment != null && _deployment.IsBusy)
                 return;   // 배치 조작 중에는 지름길 클릭을 먹지 않는다.
 
+            // 이 클릭이 이미 재배치 명령으로 소비됐으면 지름길 패널까지 열지 않는다.
+            // DeploymentController 가 [DefaultExecutionOrder(-100)] 로 항상 먼저 돌게 된 뒤로는
+            // 마커 근처의 배치 가능 칸을 클릭하면 "이동 명령 + 지름길 패널"이 한 클릭에 같이 터진다.
+            if (_deployment != null && _deployment.RedeployedThisFrame) return;
+
             Vector3 screen = mouse.position.ReadValue();
             Vector3 world = _camera.ScreenToWorldPoint(screen);
             world.z = 0f;

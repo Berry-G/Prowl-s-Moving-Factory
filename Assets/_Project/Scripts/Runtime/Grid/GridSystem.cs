@@ -22,11 +22,12 @@ namespace PMF.Grid
         [SerializeField] private Vector3 _origin = new Vector3(-16f, -9f, 0f);
         [SerializeField] private float _cellSize = 1f;
 
-        [Header("Tilemap 레이어 (덮어쓰기 우선순위: Ground → Road → Buildable → VillageSlot → Blocked)")]
+        [Header("Tilemap 레이어 (덮어쓰기 우선순위: Ground → Road → Buildable → VillageSlot → Water → Blocked)")]
         [SerializeField] private Tilemap _ground;
         [SerializeField] private Tilemap _road;
         [SerializeField] private Tilemap _buildable;
         [SerializeField] private Tilemap _villageSlot;
+        [SerializeField] private Tilemap _water;
         [SerializeField] private Tilemap _blocked;
 
         private CellType[] _cells;
@@ -64,7 +65,7 @@ namespace PMF.Grid
             _cells = new CellType[count];
 
             bool hasAnyLayer = _ground != null || _road != null || _buildable != null
-                               || _villageSlot != null || _blocked != null;
+                               || _villageSlot != null || _water != null || _blocked != null;
             if (!hasAnyLayer)
             {
                 for (int i = 0; i < count; i++) _cells[i] = CellType.Ground;
@@ -78,6 +79,7 @@ namespace PMF.Grid
             PaintLayer(_road, CellType.Road);
             PaintLayer(_buildable, CellType.Buildable);
             PaintLayer(_villageSlot, CellType.VillageSlot);
+            PaintLayer(_water, CellType.Water);
             PaintLayer(_blocked, CellType.Blocked);
 
             LogCellCounts();
@@ -100,15 +102,16 @@ namespace PMF.Grid
 
         private void LogCellCounts()
         {
-            var counts = new int[5];
+            var counts = new int[System.Enum.GetValues(typeof(CellType)).Length];
             for (int i = 0; i < _cells.Length; i++) counts[(int)_cells[i]]++;
 
             var sb = new StringBuilder("[GridSystem] ");
-            sb.Append(nameof(CellType.Ground)).Append('=').Append(counts[1]);
-            sb.Append(' ').Append(nameof(CellType.Road)).Append('=').Append(counts[2]);
-            sb.Append(' ').Append(nameof(CellType.Buildable)).Append('=').Append(counts[3]);
-            sb.Append(' ').Append(nameof(CellType.VillageSlot)).Append('=').Append(counts[4]);
-            sb.Append(' ').Append(nameof(CellType.Blocked)).Append('=').Append(counts[0]);
+            sb.Append(nameof(CellType.Ground)).Append('=').Append(counts[(int)CellType.Ground]);
+            sb.Append(' ').Append(nameof(CellType.Road)).Append('=').Append(counts[(int)CellType.Road]);
+            sb.Append(' ').Append(nameof(CellType.Buildable)).Append('=').Append(counts[(int)CellType.Buildable]);
+            sb.Append(' ').Append(nameof(CellType.VillageSlot)).Append('=').Append(counts[(int)CellType.VillageSlot]);
+            sb.Append(' ').Append(nameof(CellType.Water)).Append('=').Append(counts[(int)CellType.Water]);
+            sb.Append(' ').Append(nameof(CellType.Blocked)).Append('=').Append(counts[(int)CellType.Blocked]);
             Debug.Log(sb.ToString(), this);
         }
 
@@ -134,9 +137,59 @@ namespace PMF.Grid
         public CellType GetCell(GridCoord coord)
             => InBounds(coord) ? _cells[coord.Y * _width + coord.X] : CellType.Blocked;
 
-        public bool IsWalkable(GridCoord coord) => GetCell(coord) != CellType.Blocked;
+        /// <summary>걸어 들어갈 수 있는 칸인가. <b>장애물 2종(벽·물)은 둘 다 못 들어간다</b> (G-22).</summary>
+        public bool IsWalkable(GridCoord coord)
+        {
+            var cell = GetCell(coord);
+            return cell != CellType.Blocked && cell != CellType.Water;
+        }
 
         public bool IsBuildable(GridCoord coord) => GetCell(coord) == CellType.Buildable;
+
+        /// <summary>사거리 판정에서 이 칸이 <paramref name="waterBlocks"/> 기준으로 막힌 칸인가.
+        /// 벽은 언제나 막고, 물은 근접 병종에게만 막힌다 (G-22).</summary>
+        private bool BlocksAttack(GridCoord coord, bool waterBlocks)
+        {
+            var cell = GetCell(coord);
+            return cell == CellType.Blocked || (waterBlocks && cell == CellType.Water);
+        }
+
+        /// <summary>두 점 사이가 <b>공격 가능하게</b> 뚫려 있는가.
+        ///
+        /// <b>도로는 절대 막지 않는다.</b> 적은 항상 도로 위를 걷기 때문에, 도로를 차단으로 치면
+        /// 모든 적이 사거리 밖이 되어 게임이 성립하지 않는다.
+        /// 그래서 아군의 <b>이동</b> 판정(도로를 밟을 수 없다)과는 다른 함수다 —
+        /// <see cref="PMF.Pathing.AllyWalkGraph.IsClear"/> 를 재사용하지 마라. 둘은 목적이 다르다.
+        ///
+        /// <paramref name="waterBlocks"/>: 근접 병종이면 true. 물은 시야를 가리지 않지만
+        /// 걸어 들어갈 수 없어서 붙을 수가 없다 (G-22).
+        ///
+        /// 격자↔월드 변환이 필요한 판정이므로 CLAUDE.md §4 좌표 규칙에 따라 여기(GridSystem)에 둔다.</summary>
+        public bool HasLineOfSight(Vector3 from, Vector3 to, bool waterBlocks)
+        {
+            float distance = Vector3.Distance(from, to);
+            int steps = Mathf.CeilToInt(distance / (_cellSize * 0.5f));
+            for (int i = 0; i <= steps; i++)
+            {
+                Vector3 p = Vector3.Lerp(from, to, i / (float)Mathf.Max(steps, 1));
+                if (BlocksAttack(WorldToCell(p), waterBlocks)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>from 에서 <paramref name="direction"/> 방향으로 막히기 전까지 공격이 닿는 거리.
+        /// <paramref name="maxDistance"/> 를 넘지 않는다. 사거리 원을 장애물 모양대로 잘라 그릴 때 쓴다 (G-22).</summary>
+        public float LineOfSightDistance(Vector3 from, Vector3 direction, float maxDistance, bool waterBlocks)
+        {
+            float step = _cellSize * 0.25f;
+            float travelled = 0f;
+            for (float d = step; d <= maxDistance; d += step)
+            {
+                if (BlocksAttack(WorldToCell(from + direction * d), waterBlocks)) return travelled;
+                travelled = d;
+            }
+            return maxDistance;
+        }
 
 #if UNITY_EDITOR
         private void OnDrawGizmosSelected()

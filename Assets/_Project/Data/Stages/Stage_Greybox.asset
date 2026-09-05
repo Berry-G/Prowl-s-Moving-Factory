@@ -16,7 +16,7 @@ MonoBehaviour:
   _escorteeMaxHealth: 100
   _motherSpeed: 0.28
   _motherSpawnDelay: 5
-  _spawnVolleyCount: 3
+  _spawnVolleyCount: 4
   _spawnVolleySpacing: 0.4
   _spawnRestSeconds: 8.2
   _spawnTable:
@@ -53,15 +53,29 @@ MonoBehaviour:
   - N06
   - N10
   _burstDuration: 10
-  _burstVolleyCount: 4
+  _burstVolleyCount: 6
   _burstRestSeconds: 2.5
   _burstRecoverySpeedMultiplier: 1.6
   _burstRecoverySeconds: 4
   _startingResource: 150
   _resourcePerSecond: 8
   _shortcutCost: 120
+  _difficulties:
+  - _difficulty: 0
+    _displayName: "\uC26C\uC6C0"
+    _killReward: 4.5
+    _resourcePerSecond: 3
+  - _difficulty: 1
+    _displayName: "\uBCF4\uD1B5"
+    _killReward: 4.5
+    _resourcePerSecond: 0
+  - _difficulty: 2
+    _displayName: "\uC5B4\uB824\uC6C0"
+    _killReward: 3
+    _resourcePerSecond: 0
   _uiSlowMotionScale: 0.1
   _shotLineSeconds: 0.07
+  _magicMissileSpeed: 8
   _hitFlashSeconds: 0.08
   _debrisCount: 5
   _debrisSeconds: 0.35

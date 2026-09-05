@@ -18,14 +18,90 @@ MonoBehaviour:
   _attackRange: 6
   _attackDamage: 26
   _attackInterval: 1.8
-  _hireCost: 110
+  _isMelee: 0
+  _meleeContactDistance: 0.45
+  _hireCost: 75
   _redeployCooldown: 3
   _refundRatio: 0.5
   _tiers:
-  - _cost: 140
-    _attackDamage: 38
-    _attackRange: 6.8
-  - _cost: 230
-    _attackDamage: 54
-    _attackRange: 7.5
+  - _displayName: "\uB9C8\uB825 \uC9D1\uC911"
+    _cost: 50
+    _level: 2
+    _branch: 0
+    _attackDamage: 32
+    _attackRange: 6.4
+    _scavengeBonus: 0
+    _poisonDamagePerSecond: 0
+    _poisonDuration: 0
+    _poisonTickInterval: 0
+    _poisonBlocksHealing: 0
+    _executeThreshold: 0
+    _bossCritMultiplier: 0
+    _splashRadius: 0
+    _splashDamageRatio: 0
+    _prefersFarthestTarget: 0
+  - _displayName: "\uBA54\uD14C\uC624"
+    _cost: 80
+    _level: 3
+    _branch: 1
+    _attackDamage: 36
+    _attackRange: 6.7
+    _scavengeBonus: 0
+    _poisonDamagePerSecond: 0
+    _poisonDuration: 0
+    _poisonTickInterval: 0
+    _poisonBlocksHealing: 0
+    _executeThreshold: 0
+    _bossCritMultiplier: 0
+    _splashRadius: 1.5
+    _splashDamageRatio: 0.55
+    _prefersFarthestTarget: 0
+  - _displayName: "\uD5EC\uD30C\uC774\uC5B4"
+    _cost: 80
+    _level: 3
+    _branch: 2
+    _attackDamage: 44
+    _attackRange: 7.8
+    _scavengeBonus: 0
+    _poisonDamagePerSecond: 0
+    _poisonDuration: 0
+    _poisonTickInterval: 0
+    _poisonBlocksHealing: 0
+    _executeThreshold: 0
+    _bossCritMultiplier: 0
+    _splashRadius: 0
+    _splashDamageRatio: 0
+    _prefersFarthestTarget: 1
+  - _displayName: "\uBA54\uD14C\uC624 II"
+    _cost: 110
+    _level: 4
+    _branch: 1
+    _attackDamage: 45
+    _attackRange: 6.9
+    _scavengeBonus: 0
+    _poisonDamagePerSecond: 0
+    _poisonDuration: 0
+    _poisonTickInterval: 0
+    _poisonBlocksHealing: 0
+    _executeThreshold: 0
+    _bossCritMultiplier: 0
+    _splashRadius: 2
+    _splashDamageRatio: 0.7
+    _prefersFarthestTarget: 0
+  - _displayName: "\uD5EC\uD30C\uC774\uC5B4 II"
+    _cost: 110
+    _level: 4
+    _branch: 2
+    _attackDamage: 58
+    _attackRange: 8.8
+    _scavengeBonus: 0
+    _poisonDamagePerSecond: 0
+    _poisonDuration: 0
+    _poisonTickInterval: 0
+    _poisonBlocksHealing: 0
+    _executeThreshold: 0
+    _bossCritMultiplier: 0
+    _splashRadius: 0
+    _splashDamageRatio: 0
+    _prefersFarthestTarget: 1
   _prefab: {fileID: 5802848042911389286, guid: 98762785da4ec6240986ec790c7769bf, type: 3}

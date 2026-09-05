@@ -12,6 +12,9 @@ namespace PMF.Data
         [SerializeField] private float _attackRange = 1.0f;
         [SerializeField] private float _attackDamage = 5f;
         [SerializeField] private float _attackInterval = 1.0f;
+        [Tooltip("보스인가 (ADR-0020). 보스는 처형되지 않고 대신 치명타를 받는다. " +
+                 "프로토타입에는 아직 보스가 없다 — 처형자 규칙이 반쪽으로 남지 않게 미리 뚫어 둔 문이다.")]
+        [SerializeField] private bool _isBoss;
         [SerializeField] private GameObject _prefab;
 
         public string DisplayName => _displayName;
@@ -20,6 +23,10 @@ namespace PMF.Data
         public float AttackRange => _attackRange;
         public float AttackDamage => _attackDamage;
         public float AttackInterval => _attackInterval;
+
+        /// <summary>보스인가. 처형(ADR-0020)의 예외 대상이다.</summary>
+        public bool IsBoss => _isBoss;
+
         public GameObject Prefab => _prefab;
     }
 }

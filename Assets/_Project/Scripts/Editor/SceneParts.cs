@@ -35,6 +35,7 @@ namespace PMF.EditorTools
             var road = MakeTilemap(gridGo.transform, "Tilemap_Road", "Path", 0);
             var buildable = MakeTilemap(gridGo.transform, "Tilemap_Buildable", "Deploy", 0);
             var villageSlot = MakeTilemap(gridGo.transform, "Tilemap_VillageSlot", "Deploy", 1);
+            var water = MakeTilemap(gridGo.transform, "Tilemap_Water", "Ground", -1);
             var blocked = MakeTilemap(gridGo.transform, "Tilemap_Blocked", "Ground", -1);
 
             var tileGround = GreyboxSprites.GetOrCreateTile("Tile_Ground",
@@ -48,6 +49,10 @@ namespace PMF.EditorTools
                 new Color(0.25f, 0.6f, 0.3f), factory.Square);
             var tileBlocked = GreyboxSprites.GetOrCreateTile("Tile_Blocked",
                 new Color(0.1f, 0.1f, 0.12f), factory.Square);
+            // 물은 벽과 <b>한눈에 구분되어야 한다</b> — 통행은 같지만 사거리 규칙이 다르기 때문이다 (G-22).
+            // 벽은 거의 검정, 물은 짙은 파랑.
+            var tileWater = GreyboxSprites.GetOrCreateTile("Tile_Water",
+                new Color(0.13f, 0.28f, 0.5f), factory.Square);
 
             for (int y = 0; y < GreyboxMapData.Height; y++)
             {
@@ -61,6 +66,7 @@ namespace PMF.EditorTools
                         case GreyboxMapData.Category.Buildable: buildable.SetTile(pos, tileBuildable); break;
                         case GreyboxMapData.Category.Village:   villageSlot.SetTile(pos, tileVillage); break;
                         case GreyboxMapData.Category.Blocked:   blocked.SetTile(pos, tileBlocked); break;
+                        case GreyboxMapData.Category.Water:     water.SetTile(pos, tileWater); break;
                     }
                 }
             }
@@ -70,6 +76,7 @@ namespace PMF.EditorTools
                              road.GetComponent<Tilemap>(),
                              buildable.GetComponent<Tilemap>(),
                              villageSlot.GetComponent<Tilemap>(),
+                             water.GetComponent<Tilemap>(),
                              blocked.GetComponent<Tilemap>());
 
             DrawExitMarker(mapRoot.transform);
@@ -152,7 +159,7 @@ namespace PMF.EditorTools
         }
 
         internal static void CreateGridSystem(Tilemap ground, Tilemap road, Tilemap buildable,
-                                              Tilemap villageSlot, Tilemap blocked)
+                                              Tilemap villageSlot, Tilemap water, Tilemap blocked)
         {
             var gridSystemGo = new GameObject("GridSystem");
             gridSystemGo.transform.SetParent(_servicesRoot);
@@ -167,6 +174,7 @@ namespace PMF.EditorTools
             so.FindProperty("_road").objectReferenceValue = road;
             so.FindProperty("_buildable").objectReferenceValue = buildable;
             so.FindProperty("_villageSlot").objectReferenceValue = villageSlot;
+            so.FindProperty("_water").objectReferenceValue = water;
             so.FindProperty("_blocked").objectReferenceValue = blocked;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -356,20 +364,25 @@ namespace PMF.EditorTools
             //
             // 배속은 키보드(Space/1/2/3)로도 되지만 버튼이 없으면 존재를 알기 어렵다 — 클릭 버튼도 같이 둔다.
             // ⚠️ 이름을 "Btn_Pause" 에서 바꾸지 마라. 우상단 일시정지 메뉴 버튼은 "Btn_PauseMenu" 로 따로 있다.
+            // 0.1x 는 원래 창이 뜰 때만 자동으로 걸리던 속도인데(ADR-0019), 플레이어가 직접 고를 수도
+            // 있게 버튼으로 꺼냈다 (2026-09-02). 라벨이 길어 이 버튼만 폭이 넓다.
             var pauseBtn = MakeButton(canvas, "Btn_Pause", "II",
                                       new Vector2(12f, 12f), new Vector2(52f, 44f));
+            var speed01Btn = MakeButton(canvas, "Btn_Speed01", "0.1x",
+                                        new Vector2(56f, 12f), new Vector2(104f, 44f));
             var speed1Btn = MakeButton(canvas, "Btn_Speed1", "1x",
-                                       new Vector2(56f, 12f), new Vector2(96f, 44f));
+                                       new Vector2(108f, 12f), new Vector2(148f, 44f));
             var speed2Btn = MakeButton(canvas, "Btn_Speed2", "2x",
-                                       new Vector2(100f, 12f), new Vector2(140f, 44f));
+                                       new Vector2(152f, 12f), new Vector2(192f, 44f));
             var speed4Btn = MakeButton(canvas, "Btn_Speed4", "4x",
-                                       new Vector2(144f, 12f), new Vector2(184f, 44f));
+                                       new Vector2(196f, 12f), new Vector2(236f, 44f));
 
             var controlsGo = new GameObject("SpeedControls");
             controlsGo.transform.SetParent(canvas, false);
             var controls = controlsGo.AddComponent<UI.SpeedControls>();
             var so = new SerializedObject(controls);
             so.FindProperty("_pauseButton").objectReferenceValue = pauseBtn;
+            so.FindProperty("_speed01Button").objectReferenceValue = speed01Btn;
             so.FindProperty("_speed1Button").objectReferenceValue = speed1Btn;
             so.FindProperty("_speed2Button").objectReferenceValue = speed2Btn;
             so.FindProperty("_speed4Button").objectReferenceValue = speed4Btn;

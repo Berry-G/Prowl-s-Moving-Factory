@@ -92,7 +92,7 @@ namespace PMF.Actors
             _health = GetComponent<Health>();
             if (_health != null)
             {
-                _health.Initialize(_def.MaxHealth * _healthMultiplier, Team.Enemy);
+                _health.Initialize(_def.MaxHealth * _healthMultiplier, Team.Enemy, _def.IsBoss);
                 _health.OnDied += OnDied;
             }
 
@@ -298,6 +298,16 @@ namespace PMF.Actors
             var sr = GetComponent<SpriteRenderer>();
             var color = sr != null ? sr.color : new Color(0.9f, 0.3f, 0.25f);
             UI.DebrisScatter.Spawn(transform.position, color, count, seconds);
+
+            // 처치 보상 (G-23, 회의 결정 4). 난이도가 정한 값이고, 소수라서 지갑이 누적해 지급한다.
+            // GDD §10 이 우려하던 "일부러 흘려보내기" 최적화는 성립하지 않는다 —
+            // 보호대상 체력이 실질 3칸뿐이라(결정 11) 체력을 자원으로 환전할 여유가 없다.
+            //
+            // 손기술(고양이 Lv2, ADR-0020)은 여기에 배율로 얹힌다 — 죽은 자리가 어느 도적의 행동반경
+            // 안이었는지만 본다. 막타 소유권은 보지 않으므로 독으로 죽든 남이 죽이든 똑같이 적용된다.
+            if (_session != null && _session.Wallet != null)
+                _session.Wallet.AddFractional(
+                    _session.KillReward * ScavengeRegistry.MultiplierAt(transform.position));
 
             // 로봇 격파음 (G-11).
             if (_session != null && _session.Sfx != null)

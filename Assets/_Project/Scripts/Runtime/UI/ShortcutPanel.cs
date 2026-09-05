@@ -31,12 +31,24 @@ namespace PMF.UI
         private Button _buyButton;
         private Text _buyLabel;
         private Action _onConfirm;
+        private bool _slowMotionHeld;   // GameClock 슬로우모션 토큰 (ADR-0019)
+        private Session.GameClock _clock;
 
         private void Start()
         {
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Build();
             ApplyOpen(false);
+
+            // 배속을 바꾸면 창을 닫는다 (2026-09-02) — 창이 떠 있는 한 0.1배속이라 배속 변경이 무의미하다.
+            _clock = Session.GameClock.Instance;
+            if (_clock != null) _clock.OnDismissUiWindows += Hide;
+        }
+
+        private void OnDestroy()
+        {
+            // 도메인 리로드가 꺼져 있다 — 구독을 반드시 푼다 (CLAUDE.md §3).
+            if (_clock != null) _clock.OnDismissUiWindows -= Hide;
         }
 
         /// <param name="cost">지불할 자원.</param>
@@ -50,7 +62,7 @@ namespace PMF.UI
             _buyLabel.color = affordable ? Color.white : new Color(0.55f, 0.57f, 0.62f);
 
             ApplyOpen(true);
-            GameClock.Instance?.EnterUiSlowMotion();   // 배치 UI 와 같은 규칙 (0.1배속)
+            AcquireSlowMotion();   // 확정 규칙 6 — 윈도우형 UI 가 뜨면 0.1배속 (ADR-0019)
         }
 
         public void Hide()
@@ -58,7 +70,30 @@ namespace PMF.UI
             if (!IsOpen) return;
             ApplyOpen(false);
             _onConfirm = null;
+            ReleaseSlowMotion();
+        }
+
+        /// <summary>슬로우모션 토큰을 하나만 들고 있는다 (ADR-0019).
+        /// Show 는 이미 열려 있는 상태에서 또 불릴 수 있다 — 그때 Enter 를 한 번 더 걸면
+        /// Hide 한 번으로는 안 풀려 게임이 0.1배속에 갇힌다.</summary>
+        private void AcquireSlowMotion()
+        {
+            if (_slowMotionHeld) return;
+            _slowMotionHeld = true;
+            GameClock.Instance?.EnterUiSlowMotion();
+        }
+
+        private void ReleaseSlowMotion()
+        {
+            if (!_slowMotionHeld) return;
+            _slowMotionHeld = false;
             GameClock.Instance?.ExitUiSlowMotion();
+        }
+
+        private void OnDisable()
+        {
+            // 씬이 내려갈 때 창이 열려 있었으면 슬로우모션이 걸린 채 남는다.
+            ReleaseSlowMotion();
         }
 
         private void ApplyOpen(bool open)
@@ -107,6 +142,10 @@ namespace PMF.UI
             var cancel = MakeButton("Btn_Cancel", -158f, out cancelLabel);
             cancelLabel.text = "취소";
             cancel.onClick.AddListener(Hide);
+
+            // 우측 위 모서리 X (2026-09-02). 취소 버튼이 이미 있지만, 창마다 닫는 자리가 같아야
+            // 어느 창에서든 같은 곳을 누르게 된다.
+            UnitInfoPanel.MakeCloseButton(_panel.transform, _font).onClick.AddListener(Hide);
         }
 
         private static void Stretch(RectTransform rt)

@@ -25,6 +25,22 @@ namespace PMF.UI
         // 우리가 만든 버튼만 기억했다가 그것만 지운다.
         private readonly List<GameObject> _buttons = new List<GameObject>();
 
+        private Button _closeButton;
+
+        /// <summary>X 버튼을 눌렀다. <b>이 패널은 스스로 닫지 않는다</b> —
+        /// 닫으면서 슬로우모션 토큰과 배치 하이라이트까지 정리해야 하고 그건 DeploymentController 의 몫이다.
+        /// 여기서 <c>Hide()</c> 를 직접 부르면 창은 사라지는데 게임이 0.1배속에 갇힌다.</summary>
+        public event Action OnCloseRequested;
+
+        private void Awake()
+        {
+            // 이 패널은 SceneParts 가 만든 것이라 X 버튼만 코드로 얹는다.
+            var root = _buttonRoot != null ? _buttonRoot : transform as RectTransform;
+            _closeButton = UnitInfoPanel.MakeCloseButton(
+                root, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
+            _closeButton.onClick.AddListener(() => OnCloseRequested?.Invoke());
+        }
+
         /// <param name="onHover">버튼에 포인터가 올라가면 그 정의를, 벗어나면 null 을 넘긴다 (G-16 사거리 미리보기).</param>
         public void Show(IReadOnlyList<UnitDefinition> units, Wallet wallet,
                          Action<UnitDefinition> onPicked, Action<UnitDefinition> onHover = null)

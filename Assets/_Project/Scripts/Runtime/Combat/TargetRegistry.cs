@@ -40,7 +40,11 @@ namespace PMF.Combat
         }
 
         /// <summary>origin 기준 range 안에서 team 소속 살아있는 대상 중 가장 가까운 것. 없으면 null.</summary>
-        public static IDamageable FindNearest(Vector3 origin, float range, Team team)
+        /// <summary>origin 기준 range 안에서 team 소속 살아있는 대상 중 가장 가까운 것. 없으면 null.
+        /// <paramref name="filter"/> 를 주면 통과한 대상만 후보가 된다 (사격선 판정 등, G-22).
+        /// 매 프레임 호출되므로 <b>호출자가 델리게이트를 필드에 캐시</b>해서 넘겨라 — 람다를 그 자리에서 만들지 마라.</summary>
+        public static IDamageable FindNearest(Vector3 origin, float range, Team team,
+                                              System.Func<IDamageable, bool> filter = null)
         {
             var list = _lists[(int)team];
             float rangeSqr = range * range;
@@ -52,11 +56,10 @@ namespace PMF.Combat
                 var t = list[i];
                 if (!t.IsAlive) continue;                     // 제거는 Unregister 에 맡긴다
                 float sqr = (t.Position - origin).sqrMagnitude;
-                if (sqr <= rangeSqr && sqr < bestSqr)
-                {
-                    bestSqr = sqr;
-                    best = t;
-                }
+                if (sqr > rangeSqr || sqr >= bestSqr) continue;
+                if (filter != null && !filter(t)) continue;
+                bestSqr = sqr;
+                best = t;
             }
             return best;
         }
@@ -64,7 +67,12 @@ namespace PMF.Combat
         /// <summary>
         /// origin 기준 range 안 team 소속, anchor 에 가장 가까운 대상. 없으면 null.
         /// </summary>
-        public static IDamageable FindNearestTo(Vector3 origin, float range, Team team, Vector3 anchor)
+        /// <summary>
+        /// origin 기준 range 안 team 소속, anchor 에 가장 가까운 대상. 없으면 null.
+        /// <paramref name="filter"/> 규약은 <see cref="FindNearest"/> 와 같다.
+        /// </summary>
+        public static IDamageable FindNearestTo(Vector3 origin, float range, Team team, Vector3 anchor,
+                                                System.Func<IDamageable, bool> filter = null)
         {
             var list = _lists[(int)team];
             float rangeSqr = range * range;
@@ -80,14 +88,64 @@ namespace PMF.Combat
                 if (distSqr > rangeSqr) continue;
 
                 float anchorSqr = (t.Position - anchor).sqrMagnitude;
-                if (!found || anchorSqr < bestAnchorSqr)
-                {
-                    found = true;
-                    bestAnchorSqr = anchorSqr;
-                    best = t;
-                }
+                if (found && anchorSqr >= bestAnchorSqr) continue;
+                if (filter != null && !filter(t)) continue;
+
+                found = true;
+                bestAnchorSqr = anchorSqr;
+                best = t;
             }
             return best;
+        }
+
+        /// <summary>origin 기준 range 안에서 team 소속 살아있는 대상 중 <b>가장 먼</b> 것. 없으면 null.
+        ///
+        /// 저격(헬파이어, ADR-0021)이 쓴다 — 기본 타겟팅이 "보호대상에 가장 가까운 적"이라 발밑부터
+        /// 처리하는 반면, 저격은 사거리 가장자리의 적, 즉 <b>아직 들어오지 않은 적</b>을 먼저 자른다.
+        /// <paramref name="filter"/> 규약은 <see cref="FindNearest"/> 와 같다.</summary>
+        public static IDamageable FindFarthest(Vector3 origin, float range, Team team,
+                                               System.Func<IDamageable, bool> filter = null)
+        {
+            var list = _lists[(int)team];
+            float rangeSqr = range * range;
+            IDamageable best = null;
+            float bestSqr = -1f;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var t = list[i];
+                if (!t.IsAlive) continue;
+                float sqr = (t.Position - origin).sqrMagnitude;
+                if (sqr > rangeSqr || sqr <= bestSqr) continue;
+                if (filter != null && !filter(t)) continue;
+                bestSqr = sqr;
+                best = t;
+            }
+            return best;
+        }
+
+        /// <summary>center 기준 radius 안의 team 소속 살아있는 대상을 <paramref name="result"/> 에 모두 담는다.
+        ///
+        /// 범위 공격(메테오, ADR-0021)이 쓴다. <b>반드시 복사본을 채운다</b> —
+        /// 내부 리스트를 순회하면서 <see cref="IDamageable.TakeDamage"/> 를 부르면
+        /// 죽은 대상이 <see cref="Unregister"/> 되면서 순회 중인 리스트가 바뀐다.
+        /// 매 타격 호출되므로 <b>호출자가 List 를 필드에 캐시</b>해서 넘겨라.</summary>
+        public static void CollectInRadius(Vector3 center, float radius, Team team,
+                                           List<IDamageable> result)
+        {
+            if (result == null) return;
+            result.Clear();
+            if (radius <= 0f) return;
+
+            var list = _lists[(int)team];
+            float radiusSqr = radius * radius;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var t = list[i];
+                if (!t.IsAlive) continue;
+                if ((t.Position - center).sqrMagnitude > radiusSqr) continue;
+                result.Add(t);
+            }
         }
 
         public static int CountAlive(Team team)

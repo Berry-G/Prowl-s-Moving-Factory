@@ -18,6 +18,7 @@ namespace PMF.UI
     {
         private const float ArriveDistance = 0.12f;
         private const float MaxLifetimeSeconds = 3f;   // 안전장치 — 어떤 이유로든 도달 못 하면 사라진다
+        private const float BurstSeconds = 0.22f;      // 착탄 폭발이 퍼지며 사라지는 시간
 
         // 외부 에셋 0 규칙에 맞춰 스프라이트를 코드로 만든다 (GreyboxSprites·ProceduralSfx 와 같은 방식).
         private static Sprite _sprite;
@@ -32,8 +33,17 @@ namespace PMF.UI
         private SpriteRenderer _sprite2D;
         private Transform _trail;
 
+        // 착탄 폭발 (메테오, ADR-0021). 0 이면 단일 대상이라 그냥 사라진다.
+        private float _splashRadius;
+        private float _burstTimer;
+        private Color _color;
+
         /// <summary>발사. <paramref name="speed"/> 는 게임시간 기준 (배속·일시정지를 따른다).</summary>
-        public static void Spawn(Vector3 from, IDamageable target, Color color, float speed, Transform parent)
+        /// <param name="splashRadius">범위 공격 반경 (셀). 0 보다 크면 착탄 지점에서 그 크기로 터진다.
+        /// 피해 판정은 <see cref="Combat.Attacker"/> 가 이미 끝냈다 — 이건 <b>왜 저 적도 맞았는지</b>를
+        /// 보여 주는 연출이다.</param>
+        public static void Spawn(Vector3 from, IDamageable target, Color color, float speed, Transform parent,
+                                 float splashRadius = 0f)
         {
             if (target == null) return;
 
@@ -42,11 +52,13 @@ namespace PMF.UI
             if (parent != null) go.transform.SetParent(parent, true);
 
             var missile = go.AddComponent<MagicMissile>();
+            missile._splashRadius = Mathf.Max(0f, splashRadius);
             missile.Init(target, color, speed);
         }
 
         private void Init(IDamageable target, Color color, float speed)
         {
+            _color = color;
             _target = target;
             _lastKnownTargetPosition = target.Position;
             _speed = Mathf.Max(0.1f, speed);
@@ -79,15 +91,20 @@ namespace PMF.UI
         {
             // 게임시간 기준 — 배속에서 빨라지고 일시정지에서 멈춘다 (다른 연출과 같은 규칙).
             float dt = Time.deltaTime;
+
+            if (_burstTimer > 0f) { UpdateBurst(dt); return; }
+
             _life -= dt;
             if (_life <= 0f) { Destroy(gameObject); return; }
 
             // 대상이 살아 있으면 계속 따라간다 (유도). 죽었으면 마지막 위치로 마저 날아간다.
-            if (_target != null && _target.IsAlive) _lastKnownTargetPosition = _target.Position;
+            // IsUsable 이 먼저다 — 적이 파괴된 뒤에는 IDamageable 이 null 로 보이지 않아
+            // Position 에 닿는 순간 터진다 (DamageableExtensions 참조).
+            if (_target.IsUsable() && _target.IsAlive) _lastKnownTargetPosition = _target.Position;
 
             Vector3 to = _lastKnownTargetPosition - transform.position;
             float distance = to.magnitude;
-            if (distance <= ArriveDistance) { Destroy(gameObject); return; }
+            if (distance <= ArriveDistance) { Arrive(); return; }
 
             Vector3 step = to / distance * (_speed * dt);
             Vector3 previous = transform.position;
@@ -99,6 +116,29 @@ namespace PMF.UI
                 line.SetPosition(0, transform.position);
                 line.SetPosition(1, previous - step * 2f);
             }
+        }
+
+        /// <summary>도착. 범위 공격이면 그 자리에서 터지고, 아니면 그냥 사라진다.</summary>
+        private void Arrive()
+        {
+            if (_splashRadius <= 0f) { Destroy(gameObject); return; }
+
+            _burstTimer = BurstSeconds;
+            if (_trail != null) Destroy(_trail.gameObject);   // 꼬리를 끌고 퍼지면 지저분하다
+        }
+
+        /// <summary>착탄 폭발 — 스플래시 반경까지 퍼지면서 흐려진다.
+        /// 반경을 그대로 쓰므로 <b>실제로 피해가 들어간 범위와 그림이 일치한다.</b></summary>
+        private void UpdateBurst(float dt)
+        {
+            _burstTimer -= dt;
+            if (_burstTimer <= 0f) { Destroy(gameObject); return; }
+
+            float t = 1f - _burstTimer / BurstSeconds;   // 0 → 1
+            transform.localScale = Vector3.one * Mathf.Lerp(0.22f, _splashRadius * 2f, t);
+
+            if (_sprite2D != null)
+                _sprite2D.color = new Color(_color.r, _color.g, _color.b, _color.a * (1f - t));
         }
 
         /// <summary>8×8 원 스프라이트를 한 번만 만들어 재사용한다.</summary>

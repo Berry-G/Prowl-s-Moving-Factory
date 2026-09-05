@@ -14,6 +14,20 @@ namespace PMF.Session
     ///   [대기] → 마을 클릭 → [유닛 선택] → 유닛 버튼 → [슬롯 선택] → Buildable 칸 클릭 → 고용 확정
     ///   우클릭 / ESC → 어느 단계에서든 [대기]
     /// </summary>
+    /// <remarks>
+    /// <b>실행 순서를 명시한다 — 좌클릭 한 번을 이 컨트롤러와 <see cref="SelectionController"/> 가 같이 본다.</b>
+    ///
+    /// 둘 다 <c>wasPressedThisFrame</c> 을 읽으므로 한 번의 클릭이 양쪽 Update 에 모두 들어온다.
+    /// 순서를 지정하지 않으면(둘 다 실행 순서 0) Unity 가 임의로 정하는데, 하필
+    /// SelectionController 가 먼저 돌면 빈 칸 클릭이 <c>Select(null)</c> 로 선택을 지워 버리고,
+    /// 뒤이어 도는 이 컨트롤러는 <c>Selected == null</c> 을 보고 <b>재배치 명령을 아예 내지 않는다</b>.
+    /// 증상은 "선택은 되는데 유닛이 움직이지 않는다" 이고, 재컴파일 한 번에 방향이 뒤집힐 수 있어
+    /// 재현이 들쭉날쭉하다. 실제로 그렇게 터졌다 (2026-09-01).
+    ///
+    /// 그래서 <b>명령이 선택 갱신보다 먼저</b>라고 못박는다. 같은 이유로 Esc 는 이미
+    /// <see cref="CancelledThisFrame"/> 로 처리하고 있다 — 같은 계열의 문제다.
+    /// </remarks>
+    [DefaultExecutionOrder(-100)]
     public sealed class DeploymentController : MonoBehaviour
     {
         private enum Mode { Idle, UnitSelect, SlotSelect }
@@ -37,15 +51,31 @@ namespace PMF.Session
         public bool IsBusy => _mode != Mode.Idle;
 
         private int _cancelFrame = -1;
+        private int _redeployFrame = -1;
+        private bool _slowMotionHeld;   // GameClock 슬로우모션 토큰 (ADR-0019)
+        private GameClock _clock;
 
         /// <summary>이번 프레임에 Esc·우클릭으로 배치를 취소했는가.
         /// 일시정지 메뉴(G-12)가 같은 Esc 를 이어받아 열리는 것을 막는다.</summary>
         public bool CancelledThisFrame => _cancelFrame == Time.frameCount;
 
+        /// <summary>이번 프레임의 좌클릭이 <b>재배치 명령으로 소비됐는가</b>.
+        /// <see cref="SelectionController"/> 가 같은 클릭으로 선택을 지우는 것을 막는다 —
+        /// 방금 이동을 명령한 유닛은 계속 선택된 채로 행군하는 것이 맞다.
+        /// <b>성공했을 때만</b> 세운다. 실패(쿨다운·막힌 칸·다른 유닛이 선 칸)면 세우지 않으므로
+        /// 그 클릭은 평소대로 "다른 유닛 선택" 으로 흘러간다.</summary>
+        public bool RedeployedThisFrame => _redeployFrame == Time.frameCount;
+
         private void Start()
         {
             // Awake 캐시 원칙 — Start 에서 한 번만 찾는다.
             _camera = Camera.main;
+
+            // 씬 재구축이 GridSystem 을 빠뜨리면 배치·재배치가 통째로 죽는다.
+            // 조용히 죽으면 한참 뒤에야 발견되므로 여기서 소리를 낸다.
+            if (GridSystem.Instance == null)
+                Debug.LogError($"[{nameof(DeploymentController)}] GridSystem 없음 — 배치가 동작하지 않는다.", this);
+
             if (_hirePanel == null)
                 _hirePanel = FindAnyObjectByType<UI.HirePanel>();
             if (_selection == null)
@@ -55,6 +85,14 @@ namespace PMF.Session
                 var go = new GameObject("HoverRangeCircle");
                 _hoverRange = go.AddComponent<UI.RangeCircle>();
             }
+
+            // 고용 패널의 X 버튼은 뷰가 직접 닫지 못한다 — 닫으면서 슬로우모션 토큰과 하이라이트까지
+            // 정리해야 하고, 그건 이 컨트롤러의 몫이다 (Cancel).
+            if (_hirePanel != null) _hirePanel.OnCloseRequested += Cancel;
+
+            // 배속을 바꾸면 창을 닫는다 (2026-09-02).
+            _clock = GameClock.Instance;
+            if (_clock != null) _clock.OnDismissUiWindows += Cancel;
         }
 
         private void Update()
@@ -62,6 +100,11 @@ namespace PMF.Session
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
             if (mouse == null) return;
+
+            // 씬 파괴 순서는 보장되지 않는다. GridSystem 이 먼저 죽으면 Instance 가 null 인 채로
+            // 이 Update 가 한 프레임 더 돈다 — 그대로 두면 WorldToCell 에서 매 프레임 NRE 가 터진다.
+            // 씬에 아예 없는 경우는 Start 가 에러로 잡으므로, 여기서는 조용히 빠진다.
+            if (GridSystem.Instance == null) return;
 
             // 입력 우선순위 1단계 — 일시정지 메뉴가 떠 있으면 게임 입력 전부 차단 (G-02/G-12).
             if (PMF.UI.PauseMenu.IsOpen || PMF.UI.ShortcutPanel.IsOpen) return;
@@ -91,10 +134,17 @@ namespace PMF.Session
 
             // 강화 단축키 (G-05) — 선택된 유닛을 다음 티어로. 즉시 적용, 행군 없음 (ADR-0009).
             // 버튼 비활성 표시는 G-15 정보 패널이 담당한다.
+            //
+            // 갈래가 둘인 단계(고양이 Lv2→Lv3, ADR-0020)에서는 단축키를 받지 않는다. 되돌릴 수 없는
+            // 선택을 키 하나로 확정시키면 오조작이 곧 손실이 된다 — 그때는 패널에서 고르게 한다.
             if (keyboard != null && keyboard.uKey.wasPressedThisFrame
                 && _selection != null && _selection.Selected != null)
             {
-                TryUpgrade(_selection.Selected);
+                var selected = _selection.Selected;
+                if (selected.UpgradeOptions.Count > 1)
+                    Debug.Log("[Upgrade] 갈래가 둘이다 — 정보 패널에서 골라라 (되돌릴 수 없다)");
+                else
+                    TryUpgrade(selected, 0);
                 return;
             }
 
@@ -150,7 +200,9 @@ namespace PMF.Session
 
             _selectedVillage = village;
             _mode = Mode.UnitSelect;
-            GameClock.Instance?.EnterUiSlowMotion();   // 배치 조작 전체(고용~슬롯 선택)는 정밀 조작이 필요한 UI 취급.
+            // 확정 규칙 6 — 윈도우형 UI 가 뜨면 0.1배속 (ADR-0019).
+            // 배치 조작 전체(고용~슬롯 선택)가 정밀 조작 창이다.
+            AcquireSlowMotion();
             // 유닛을 고르기 전이라도 배치 UI가 뜬 순간부터 어디에 지을 수 있는지 보여준다.
             // 기준점은 마을 — 이 마을에서 걸어갈 수 있는 칸만 나온다.
             ShowHighlights(village.transform.position, village.transform.position);
@@ -236,7 +288,35 @@ namespace PMF.Session
             _hireHoverUnit = null;
             if (_hirePanel != null) _hirePanel.Hide();
             ClearHighlights();
-            GameClock.Instance?.ExitUiSlowMotion();   // 취소/고용 확정 어느 쪽으로 끝나도 여기서 복귀.
+            ReleaseSlowMotion();   // 취소/고용 확정 어느 쪽으로 끝나도 여기서 복귀.
+        }
+
+        /// <summary>슬로우모션 토큰을 <b>하나만</b> 들고 있는다 (ADR-0019).
+        /// Cancel 은 Idle 상태에서도 불리고(빈 곳 우클릭·ESC), 고용 패널이 떠 있는 동안
+        /// 다른 마을을 눌러 TryPickVillage 가 다시 돌 수도 있다. 그대로 두면 Enter/Exit 짝이 어긋나
+        /// 게임이 0.1배속에 갇히거나 창이 떠 있는데 정상 속도로 돈다.</summary>
+        private void AcquireSlowMotion()
+        {
+            if (_slowMotionHeld) return;
+            _slowMotionHeld = true;
+            GameClock.Instance?.EnterUiSlowMotion();
+        }
+
+        private void ReleaseSlowMotion()
+        {
+            if (!_slowMotionHeld) return;
+            _slowMotionHeld = false;
+            GameClock.Instance?.ExitUiSlowMotion();
+        }
+
+        private void OnDisable()
+        {
+            // 씬이 내려갈 때 창이 열려 있었으면 슬로우모션이 걸린 채 남는다.
+            ReleaseSlowMotion();
+
+            // 도메인 리로드가 꺼져 있다 — 구독을 반드시 푼다 (CLAUDE.md §3).
+            if (_hirePanel != null) _hirePanel.OnCloseRequested -= Cancel;
+            if (_clock != null) _clock.OnDismissUiWindows -= Cancel;
         }
 
         /// <summary>재배치 명령 (G-03, ADR-0008 B안). 행군 시간 + 쿨다운 3.0초 — 자원은 안 든다.</summary>
@@ -252,7 +332,7 @@ namespace PMF.Session
             if (_hireHoverUnit != null && _selectedVillage != null)
             {
                 _hoverRange.Show(_selectedVillage.transform.position,
-                                 _hireHoverUnit.AttackRange, PreviewRangeColor);
+                                 _hireHoverUnit.AttackRange, PreviewRangeColor, _hireHoverUnit.IsMelee);
                 return;
             }
 
@@ -271,7 +351,8 @@ namespace PMF.Session
             if (_mode == Mode.SlotSelect && _selectedUnit != null)
             {
                 if (GridSystem.Instance.IsBuildable(coord) && !_reservedSlots.Contains(coord))
-                    _hoverRange.Show(GridSystem.Instance.CellToWorld(coord), _selectedUnit.AttackRange, PreviewRangeColor);
+                    _hoverRange.Show(GridSystem.Instance.CellToWorld(coord), _selectedUnit.AttackRange,
+                                     PreviewRangeColor, _selectedUnit.IsMelee);
                 else
                     _hoverRange.Hide();
                 return;
@@ -284,7 +365,8 @@ namespace PMF.Session
                 var atk = selected.GetComponent<Combat.Attacker>();
                 if (atk != null && GridSystem.Instance.IsBuildable(coord)
                     && !_reservedSlots.Contains(coord) && VillageAt(coord) == null)
-                    _hoverRange.Show(GridSystem.Instance.CellToWorld(coord), atk.Range, PreviewRangeColor);
+                    _hoverRange.Show(GridSystem.Instance.CellToWorld(coord), atk.Range,
+                                     PreviewRangeColor, atk.WaterBlocks);
                 else
                     _hoverRange.Hide();
                 return;
@@ -310,9 +392,12 @@ namespace PMF.Session
         }
 
         /// <summary>정보 패널(G-15)의 [업그레이드] 버튼.</summary>
-        public void RequestUpgrade(AllyUnit unit)
+        public void RequestUpgrade(AllyUnit unit) => RequestUpgrade(unit, 0);
+
+        /// <param name="option">고른 후보의 번호. Lv2→Lv3 분기에서만 1 이 올 수 있다 (ADR-0020).</param>
+        public void RequestUpgrade(AllyUnit unit, int option)
         {
-            if (unit != null) TryUpgrade(unit);
+            if (unit != null) TryUpgrade(unit, option);
         }
 
         /// <summary>이동 목적지 하이라이트를 끈다. 선택이 풀리면 정보 패널이 부른다.
@@ -353,6 +438,7 @@ namespace PMF.Session
             }
 
             EndRedeployTargeting();   // [이동] 버튼으로 켠 하이라이트를 끈다 (G-15)
+            _redeployFrame = Time.frameCount;   // 이 클릭은 여기서 소비됐다 — SelectionController 가 선택을 지우지 않게
             Debug.Log($"[Redeploy] {unit.name} -> {coord}");
         }
 
@@ -392,15 +478,24 @@ namespace PMF.Session
         }
 
         /// <summary>강화 명령 (G-05, ADR-0009). 자원 차감 → 티어 상승 → Attacker 갱신. SO 는 건드리지 않는다.</summary>
-        private void TryUpgrade(AllyUnit unit)
+        /// <summary>강화 명령 (G-05, ADR-0009 / ADR-0020). 자원 차감 → 레벨·분기 확정 → Attacker 갱신.
+        /// SO 는 건드리지 않는다.</summary>
+        /// <param name="option">고른 후보의 번호. 분기가 있는 단계에서만 0 이 아닐 수 있다.</param>
+        private void TryUpgrade(AllyUnit unit, int option)
         {
             if (!unit.CanUpgrade)
             {
                 Debug.Log("[Upgrade] 이미 최대 티어");
                 return;
             }
+            if (option < 0 || option >= unit.UpgradeOptions.Count)
+            {
+                Debug.LogWarning($"[Upgrade] 후보 번호 {option} 가 범위 밖 (후보 {unit.UpgradeOptions.Count}개)");
+                return;
+            }
 
-            int cost = unit.NextUpgradeCost;
+            int cost = unit.UpgradeOptionCost(option);
+            string name = unit.UpgradeOptionName(option);
             var wallet = GameSession.Instance.Wallet;
             if (!wallet.CanAfford(cost))
             {
@@ -409,8 +504,11 @@ namespace PMF.Session
             }
 
             wallet.TrySpend(cost);
-            unit.ApplyUpgrade();
-            Debug.Log($"[Upgrade] {unit.name} → Lv{unit.TierLevel + 1} (비용 {cost}, 공격 {unit.GetComponent<Combat.Attacker>().Damage} · 사거리 {unit.GetComponent<Combat.Attacker>().Range})");
+            unit.ApplyUpgrade(option);
+
+            var attacker = unit.Attacker;
+            Debug.Log($"[Upgrade] {unit.name} → Lv{unit.Level} \"{name}\" (비용 {cost}, " +
+                      $"공격 {attacker.Damage} · 사거리 {attacker.Range})");
         }
 
         /// <summary>이미 <b>차지된</b> 칸을 표시한다.

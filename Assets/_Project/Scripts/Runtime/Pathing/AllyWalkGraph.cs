@@ -112,7 +112,8 @@ namespace PMF.Pathing
             return true;
         }
 
-        /// <summary>두 점을 잇는 직선이 도로·장애물을 지나지 않는가.</summary>
+        /// <summary>두 점을 잇는 직선이 도로·장애물을 지나지 않는가.
+        /// <b>장애물 2종(벽·물)은 이동에 대해서는 똑같이 막힌 칸이다</b> (G-22).</summary>
         public static bool IsClear(Vector3 from, Vector3 to)
         {
             var grid = GridSystem.Instance;
@@ -123,8 +124,7 @@ namespace PMF.Pathing
             for (int i = 0; i <= steps; i++)
             {
                 Vector3 p = Vector3.Lerp(from, to, i / (float)Mathf.Max(steps, 1));
-                var cell = grid.GetCell(grid.WorldToCell(p));
-                if (cell == CellType.Blocked || cell == CellType.Road) return false;
+                if (IsObstacle(grid, grid.WorldToCell(p))) return false;
             }
             return true;
         }
@@ -177,10 +177,10 @@ namespace PMF.Pathing
             Debug.Log($"[AllyWalkGraph] 모서리 노드 {_nodes.Count}개로 아군 이동 그래프 구성");
         }
 
+        /// <summary>아군이 발을 디딜 수 없는 칸인가. 도로 + 장애물 2종(벽·물) 전부다 (G-22).</summary>
+        /// <summary>아군이 발을 디딜 수 없는 칸인가. 도로 + 장애물 2종(벽·물) 전부다 (G-22).
+        /// 범위 밖은 <see cref="GridSystem.GetCell"/> 이 Blocked 로 돌려주므로 자동으로 막힌다.</summary>
         private static bool IsObstacle(GridSystem grid, GridCoord c)
-        {
-            var cell = grid.GetCell(c);   // 범위 밖은 Blocked 로 온다
-            return cell == CellType.Blocked || cell == CellType.Road;
-        }
+            => !grid.IsWalkable(c) || grid.GetCell(c) == CellType.Road;
     }
 }

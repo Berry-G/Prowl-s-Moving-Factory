@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using PMF.Session;
 
 namespace PMF.UI
 {
@@ -59,6 +60,7 @@ namespace PMF.UI
             {
                 _panel.SetActive(false);
                 _settingsPanel.SetActive(true);
+                RefreshDifficultyUI();   // 잠금 상태는 열 때마다 다시 판정한다 (G-23)
             });
 
             var quit = MakeButton(_panel.transform, "Btn_Quit", "게임 종료", TextAnchor.MiddleCenter,
@@ -70,18 +72,18 @@ namespace PMF.UI
         {
             _settingsPanel = new GameObject("SettingsPanel", typeof(RectTransform), typeof(Image));
             _settingsPanel.transform.SetParent(transform, false);
-            Rect(_settingsPanel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(340f, 380f));
+            Rect(_settingsPanel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(340f, 470f));
             _settingsPanel.GetComponent<Image>().color = new Color(0.12f, 0.13f, 0.16f, 0.98f);
             _settingsPanel.SetActive(false);
 
             MakeText(_settingsPanel.transform, "Title", "설정", 30, TextAnchor.MiddleCenter,
-                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -50f), new Vector2(300f, 44f));
+                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -44f), new Vector2(300f, 44f));
 
             MakeText(_settingsPanel.transform, "VolumeLabel", "효과음 볼륨", 20, TextAnchor.MiddleLeft,
-                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(280f, 30f));
+                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(280f, 30f));
 
             var slider = MakeSlider(_settingsPanel.transform, "VolumeSlider",
-                                    new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(260f, 24f));
+                                    new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(260f, 24f));
             if (_sfx != null) slider.value = _sfx.MasterVolume;
             slider.onValueChanged.AddListener(v =>
             {
@@ -91,7 +93,7 @@ namespace PMF.UI
             // MakeText 는 Button 이 없는 순수 라벨을 만든다. 토글은 버튼이어야 하므로 MakeButton 을 쓰고
             // 그 자식 Label 의 Text 를 잡아 둔다.
             var muteBtn = MakeButton(_settingsPanel.transform, "Btn_Mute", MuteText(), TextAnchor.MiddleCenter,
-                                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -196f), new Vector2(260f, 36f));
+                                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -176f), new Vector2(260f, 36f));
             _muteLabel = muteBtn.GetComponentInChildren<Text>();
             muteBtn.GetComponent<Button>().onClick.AddListener(() =>
             {
@@ -99,17 +101,164 @@ namespace PMF.UI
                 _muteLabel.text = MuteText();
             });
 
+            BuildDifficultyRow();
+
             var restart = MakeButton(_settingsPanel.transform, "Btn_Restart", "다시 시작", TextAnchor.MiddleCenter,
-                                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -252f), new Vector2(260f, 44f));
+                                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -350f), new Vector2(260f, 44f));
             restart.GetComponent<Button>().onClick.AddListener(OnRestart);
 
             var close = MakeButton(_settingsPanel.transform, "Btn_CloseSettings", "닫기", TextAnchor.MiddleCenter,
-                                   new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -308f), new Vector2(260f, 36f));
+                                   new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -406f), new Vector2(260f, 36f));
             close.GetComponent<Button>().onClick.AddListener(() =>
             {
                 _settingsPanel.SetActive(false);
                 _panel.SetActive(true);
             });
+        }
+
+        /// <summary>난이도 3버튼 (G-23).
+        ///
+        /// <b>고르는 순간 지금 판이 그 난이도로 처음부터 다시 시작된다.</b>
+        /// 판 도중에 수입 규칙만 슬쩍 바꾸면 그 판의 밸런스를 무엇으로 읽어야 할지 알 수 없고,
+        /// 불리할 때 쉬움으로 내려 위기를 넘기는 우회로가 생긴다. 그래서 "바꾼다 = 다시 한다" 로 묶었다.
+        ///
+        /// 되돌릴 수 없는 조작이므로 <b>반드시 확인 단계를 거친다</b> — 지름길 구매(ShortcutPanel)와 같은 이유다.</summary>
+        private void BuildDifficultyRow()
+        {
+            _difficultyLabel = MakeText(_settingsPanel.transform, "DifficultyLabel", "난이도", 20, TextAnchor.MiddleLeft,
+                                        new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                        new Vector2(0f, -222f), new Vector2(280f, 30f)).GetComponent<Text>();
+
+            // 260 폭에 84짜리 3개 + 간격 4 두 번 = 260. 가운데 정렬이라 x 는 -88 / 0 / +88.
+            var order = new[] { PMF.Data.Difficulty.Easy, PMF.Data.Difficulty.Normal, PMF.Data.Difficulty.Hard };
+            var fallbackNames = new[] { "쉬움", "보통", "어려움" };
+            float[] xs = { -88f, 0f, 88f };
+
+            var stage = GameSession.Instance != null ? GameSession.Instance.Definition : null;
+
+            for (int i = 0; i < order.Length; i++)
+            {
+                var value = order[i];
+                string label = fallbackNames[i];
+                if (stage != null && stage.HasTierFor(value))
+                {
+                    string fromAsset = stage.TierFor(value).DisplayName;
+                    if (!string.IsNullOrEmpty(fromAsset)) label = fromAsset;
+                }
+
+                var go = MakeButton(_settingsPanel.transform, "Btn_Difficulty_" + value, label, TextAnchor.MiddleCenter,
+                                    new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                    new Vector2(xs[i], -256f), new Vector2(84f, 36f));
+                var captured = value;
+                go.GetComponent<Button>().onClick.AddListener(() => RequestDifficultyChange(captured));
+                _difficultyButtons.Add(go.GetComponent<Button>());
+                _difficultyImages.Add(go.GetComponent<Image>());
+                _difficultyValues.Add(value);
+            }
+
+            _difficultyNotice = MakeText(_settingsPanel.transform, "DifficultyNotice", "", 14, TextAnchor.UpperCenter,
+                                         new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                         new Vector2(0f, -300f), new Vector2(300f, 44f)).GetComponent<Text>();
+            _difficultyNotice.color = new Color(0.95f, 0.75f, 0.35f);
+
+            BuildDifficultyConfirm();
+            RefreshDifficultyUI();
+        }
+
+        /// <summary>난이도 변경 확인 패널. 설정 패널을 통째로 덮어 다른 버튼을 못 누르게 한다.</summary>
+        private void BuildDifficultyConfirm()
+        {
+            _difficultyConfirm = new GameObject("DifficultyConfirm", typeof(RectTransform), typeof(Image));
+            _difficultyConfirm.transform.SetParent(_settingsPanel.transform, false);
+            Rect(_difficultyConfirm, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            _difficultyConfirm.GetComponent<Image>().color = new Color(0.08f, 0.09f, 0.11f, 0.99f);
+            _difficultyConfirm.SetActive(false);
+
+            MakeText(_difficultyConfirm.transform, "ConfirmTitle", "난이도를 바꿀까요?", 24, TextAnchor.MiddleCenter,
+                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(300f, 40f));
+
+            _difficultyConfirmBody = MakeText(_difficultyConfirm.transform, "ConfirmBody", "", 17, TextAnchor.UpperCenter,
+                                              new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                              new Vector2(0f, -190f), new Vector2(300f, 200f)).GetComponent<Text>();
+
+            var ok = MakeButton(_difficultyConfirm.transform, "Btn_ConfirmDifficulty", "바꾸고 다시 시작", TextAnchor.MiddleCenter,
+                                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -350f), new Vector2(260f, 44f));
+            ok.GetComponent<Image>().color = new Color(0.62f, 0.32f, 0.24f);   // 되돌릴 수 없는 조작은 붉은 계열
+            ok.GetComponent<Button>().onClick.AddListener(() =>
+            {
+                GameSession.SelectedDifficulty = _pendingDifficulty;
+                _difficultyConfirm.SetActive(false);
+                OnRestart();   // 씬 리로드 — 새 GameSession.Awake 가 바뀐 난이도를 읽는다
+            });
+
+            var cancel = MakeButton(_difficultyConfirm.transform, "Btn_CancelDifficulty", "취소", TextAnchor.MiddleCenter,
+                                    new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -406f), new Vector2(260f, 36f));
+            cancel.GetComponent<Button>().onClick.AddListener(() => _difficultyConfirm.SetActive(false));
+        }
+
+        /// <summary>난이도 버튼을 눌렀을 때. 같은 난이도면 아무 일도 하지 않는다 —
+        /// 이미 그 난이도로 돌고 있는데 판을 날릴 이유가 없다.</summary>
+        private void RequestDifficultyChange(PMF.Data.Difficulty value)
+        {
+            var session = GameSession.Instance;
+            var current = session != null ? session.ActiveDifficulty : GameSession.SelectedDifficulty;
+            if (value == current) return;
+
+            _pendingDifficulty = value;
+            if (_difficultyConfirmBody != null)
+                _difficultyConfirmBody.text =
+                    DifficultyName(current) + "  \u2192  " + DifficultyName(value) + "\n\n" +
+                    "지금 판을 처음부터 다시 시작합니다." + "\n" +
+                    "배치한 유닛과 모은 자원이 모두 사라집니다." + "\n" +
+                    "되돌릴 수 없습니다." + "\n\n" +
+                    DifficultyEconomyLine(value);
+
+            if (_difficultyConfirm != null) _difficultyConfirm.SetActive(true);
+        }
+
+        /// <summary>확인 화면에 띄울 경제 요약. 무엇이 달라지는지 숫자로 보여야 경고가 경고 구실을 한다.</summary>
+        private string DifficultyEconomyLine(PMF.Data.Difficulty value)
+        {
+            var stage = GameSession.Instance != null ? GameSession.Instance.Definition : null;
+            if (stage == null || !stage.HasTierFor(value)) return string.Empty;
+
+            var tier = stage.TierFor(value);
+            string perSecond = tier.ResourcePerSecond > 0f
+                ? "초당 " + tier.ResourcePerSecond.ToString("0.##") + "G"
+                : "시간 수입 없음";
+            return "처치당 " + tier.KillReward.ToString("0.##") + "G · " + perSecond;
+        }
+
+        private string DifficultyName(PMF.Data.Difficulty value)
+        {
+            var stage = GameSession.Instance != null ? GameSession.Instance.Definition : null;
+            if (stage != null && stage.HasTierFor(value))
+            {
+                string fromAsset = stage.TierFor(value).DisplayName;
+                if (!string.IsNullOrEmpty(fromAsset)) return fromAsset;
+            }
+            return value == PMF.Data.Difficulty.Easy ? "쉬움"
+                 : value == PMF.Data.Difficulty.Hard ? "어려움" : "보통";
+        }
+
+        /// <summary>선택 표시를 다시 그린다. 설정 패널을 열 때마다 부른다.</summary>
+        private void RefreshDifficultyUI()
+        {
+            var session = GameSession.Instance;
+            var current = session != null ? session.ActiveDifficulty : GameSession.SelectedDifficulty;
+
+            for (int i = 0; i < _difficultyButtons.Count; i++)
+            {
+                bool isSelected = _difficultyValues[i] == current;
+                _difficultyImages[i].color = isSelected
+                    ? new Color(0.35f, 0.6f, 0.9f)
+                    : new Color(0.25f, 0.3f, 0.4f);
+            }
+
+            if (_difficultyNotice != null)
+                _difficultyNotice.text = "바꾸면 지금 판을 처음부터 다시 시작합니다.";
+
+            if (_difficultyConfirm != null) _difficultyConfirm.SetActive(false);
         }
 
         private string MuteText() => _sfx != null && _sfx.IsMuted ? "음소거: 켜짐" : "음소거: 꺼짐";

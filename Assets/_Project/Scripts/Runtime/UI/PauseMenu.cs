@@ -27,6 +27,18 @@ namespace PMF.UI
         private Text _muteLabel;
         private Font _font;
 
+        // 난이도 (G-23). 언제든 고를 수 있지만, 고르면 지금 판이 그 난이도로 다시 시작된다.
+        // 판 도중에 수입 규칙만 바꾸면 그 판의 밸런스를 읽을 수 없고, 불리할 때 쉬움으로 내려
+        // 위기를 넘기는 우회로가 생긴다. 되돌릴 수 없으므로 확인 단계를 반드시 거친다.
+        private readonly System.Collections.Generic.List<Button> _difficultyButtons = new System.Collections.Generic.List<Button>();
+        private readonly System.Collections.Generic.List<Image> _difficultyImages = new System.Collections.Generic.List<Image>();
+        private readonly System.Collections.Generic.List<PMF.Data.Difficulty> _difficultyValues = new System.Collections.Generic.List<PMF.Data.Difficulty>();
+        private Text _difficultyLabel;
+        private Text _difficultyNotice;
+        private GameObject _difficultyConfirm;
+        private Text _difficultyConfirmBody;
+        private PMF.Data.Difficulty _pendingDifficulty;
+
         private void Start()
         {
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

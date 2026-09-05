@@ -79,10 +79,13 @@ namespace PMF.Session
             }
 
             // 사거리 원 (G-06) — 반지름은 Attacker.Range (티어 반영). 강화하면 원도 커진다.
+            // 중심은 몸이 아니라 <b>배치 슬롯</b>이다 (G-22): 근접 병종은 적에게 붙으러 몸이 움직이는데,
+            // 원을 몸에 붙여 그리면 원이 같이 흔들려 사거리를 읽을 수 없다.
             if (_hasSelection && _range != null)
             {
                 var atk = _selected.GetComponent<Combat.Attacker>();
-                if (atk != null) _range.Show(_selected.transform.position, atk.Range, SelectionRangeColor);
+                if (atk != null)
+                    _range.Show(_selected.RangeCenter, atk.Range, SelectionRangeColor, atk.WaterBlocks);
             }
             else if (_range != null)
             {
@@ -104,6 +107,12 @@ namespace PMF.Session
             // 2) 배치 조작 중 → 클릭을 소비하지 않는다 (DeploymentController 몫).
             if (_deployment != null && _deployment.IsBusy) return;
 
+            // 2-1) 이 클릭이 이미 재배치 명령으로 소비됐다면 선택을 건드리지 않는다.
+            //      DeploymentController 가 [DefaultExecutionOrder(-100)] 로 먼저 돌기 때문에
+            //      여기 도달했을 때는 판정이 이미 끝나 있다. 이게 없으면 방금 이동을 명령한 유닛이
+            //      "빈 칸을 클릭했다"로 읽혀 바로 선택 해제된다 (목적지 칸에는 아직 아무도 없다).
+            if (_deployment != null && _deployment.RedeployedThisFrame) return;
+
             Vector3 world = _camera.ScreenToWorldPoint(mouse.position.ReadValue());
             world.z = 0f;   // 필수 — Orthographic 에서도 z 를 0으로.
 
@@ -116,12 +125,24 @@ namespace PMF.Session
             Select(FindAllyAt(coord));
         }
 
-        /// <summary>셀 좌표에 서 있는(또는 지나가는) 아군을 찾는다. 행군 중인 유닛도 선택된다.</summary>
+        /// <summary>셀 좌표에 서 있는(또는 지나가는) 아군을 찾는다. 행군 중인 유닛도 선택된다.
+        ///
+        /// <b>배치된 유닛은 몸이 아니라 슬롯으로 먼저 찾는다</b> (G-22). 근접 병종은 적에게 붙으러
+        /// 사거리 원 안에서 몸이 슬롯을 벗어나 있을 수 있는데, 몸 위치로만 찾으면
+        /// <b>자기 자리를 클릭했는데 선택이 안 되는</b> 일이 생긴다. 슬롯은 예약되어 있어 겹치지 않으므로
+        /// 슬롯 판정이 항상 유일하다 — 그래서 이쪽을 먼저 본다.</summary>
         private AllyUnit FindAllyAt(GridCoord coord)
         {
             // FindObjectsSortMode 는 Unity 6000.5 에서 폐기됐다 (CS0618).
             // 인자 없는 오버로드가 정렬하지 않는 기본 동작이다.
             var allies = FindObjectsByType<AllyUnit>();
+
+            foreach (var ally in allies)
+            {
+                if (ally.IsDeployed && ally.TargetSlot == coord) return ally;
+            }
+
+            // 행군 중인 유닛, 그리고 슬롯 밖으로 나가 있는 근접 유닛의 몸을 직접 클릭한 경우.
             foreach (var ally in allies)
             {
                 if (GridSystem.Instance.WorldToCell(ally.transform.position) == coord)
