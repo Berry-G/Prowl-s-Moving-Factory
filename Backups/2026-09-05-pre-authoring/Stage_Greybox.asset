@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6aa69763d41bff54bbb0d07768767dea, type: 3}
+  m_Name: Stage_Greybox
+  m_EditorClassIdentifier: PMF.Runtime::PMF.Data.StageDefinition
+  _escorteeSpeed: 0.42
+  _escorteeMaxHealth: 100
+  _motherSpeed: 0.28
+  _motherSpawnDelay: 5
+  _spawnVolleyCount: 4
+  _spawnVolleySpacing: 0.4
+  _spawnRestSeconds: 8.2
+  _spawnTable:
+  - _enemy: {fileID: 11400000, guid: 9e2bcf7abc73f5e4d99e8d5bdc15f0e0, type: 2}
+    _weight: 70
+  - _enemy: {fileID: 11400000, guid: 1624c28d8f8142e4182f6431a9773729, type: 2}
+    _weight: 30
+  _enemyHealthByProgress:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  _motherFollowsPath: 1
+  _burstTriggerNodeIds:
+  - N06
+  - N10
+  _burstDuration: 10
+  _burstVolleyCount: 6
+  _burstRestSeconds: 2.5
+  _burstRecoverySpeedMultiplier: 1.6
+  _burstRecoverySeconds: 4
+  _startingResource: 150
+  _resourcePerSecond: 8
+  _shortcutCost: 120
+  _difficulties:
+  - _difficulty: 0
+    _displayName: "\uC26C\uC6C0"
+    _killReward: 4.5
+    _resourcePerSecond: 3
+  - _difficulty: 1
+    _displayName: "\uBCF4\uD1B5"
+    _killReward: 4.5
+    _resourcePerSecond: 0
+  - _difficulty: 2
+    _displayName: "\uC5B4\uB824\uC6C0"
+    _killReward: 3
+    _resourcePerSecond: 0
+  _uiSlowMotionScale: 0.1
+  _shotLineSeconds: 0.07
+  _magicMissileSpeed: 8
+  _hitFlashSeconds: 0.08
+  _debrisCount: 5
+  _debrisSeconds: 0.35
+  _healthBarHideWhenFull: 1
+  _spawnTelegraphSeconds: 0.6
+  _masterVolume: 1
+  _alliesCanDieWhileMarching: 0
+  _enemiesTargetAllies: 0
