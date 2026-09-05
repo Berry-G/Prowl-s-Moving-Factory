@@ -3,6 +3,7 @@
     "rootNamespace": "PMF.Tests",
     "references": [
         "PMF.Runtime",
+        "PMF.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

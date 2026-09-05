@@ -44,14 +44,16 @@ const string P1 = "# --- 경로 ------------------------------------------------
             { CellType.Buildable, 'B' }, { CellType.Village, 'V' }, { CellType.Blocked, 'W' }, { CellType.Water, '~' },
         };
 
-        // TS formatNumber
+        // TS formatNumber 에 맞춤: float.ToString("R") 로 최단 표현 (JS String(n) 과 동일).
+        // float 으로 내리는 이유: .asset 에서 읽은 값이 float 이므로 double.log(0.42f) ≈ 0.419999986886978,
+        //   ToString(\"G\") 는 \"0.419999986886978\" 가 나오지만 \"R\" 은 \"0.42\" 로 복원한다 (SDD-09 §2-3).
         static string FmtNum(double v)
         {
             if (double.IsNaN(v) || double.IsInfinity(v))
                 throw new ArgumentException($"숫자가 아님: {v}");
-            if (v == 0 && 1.0 / v < 0) return "0";
-            string s = v.ToString("G", CultureInfo.InvariantCulture);
-            if (s.Contains('e') || s.Contains('E') || s.Contains("Infinity") || s.Contains("NaN"))
+            if (v == 0 && 1.0 / v < 0) return "0"; // -0 → 0 (JS Object.is)
+            string s = ((float)v).ToString("R", CultureInfo.InvariantCulture);
+            if (s.Contains('e') || s.Contains('E'))
                 throw new ArgumentException($"지수 표기 금지: {s} (값 {v})");
             return s;
         }
