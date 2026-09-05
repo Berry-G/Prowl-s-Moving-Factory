@@ -122,7 +122,7 @@ const string P1 = "# --- 경로 ------------------------------------------------
             WriteToggles(doc.Toggles, lines);
             return string.Join("\n", lines) + "\n";
         }
-static void WriteMap(StageDocument.MapDef map, List<string> lines)
+        static void WriteMap(StageDocument.MapDef map, List<string> lines)
         {
             AddRange(lines, new[] { M1, M2, M3, M4 });
             AddLine(lines, "map:");
@@ -147,23 +147,27 @@ static void WriteMap(StageDocument.MapDef map, List<string> lines)
         {
             AddRange(lines, new[] { P1, P2, P3, P4 });
             AddLine(lines, "path:");
-            AddLine(lines, "  nodes[" + FmtNum(path.Nodes.Length) + "]{id,role,x,y}:");
+            // 열 순서는 씨앗 파일이 정본이다: id,x,y,role (role 이 마지막).
+            AddLine(lines, "  nodes[" + FmtNum(path.Nodes.Length) + "]{id,x,y,role}:");
             for (int i = 0; i < path.Nodes.Length; i++)
             {
                 var n = path.Nodes[i];
-                AddLine(lines, "    " + Str(n.Id) + "," + n.Role + "," + FmtNum(n.X) + "," + FmtNum(n.Y));
+                AddLine(lines, "    " + Str(n.Id) + "," + FmtNum(n.X) + "," + FmtNum(n.Y) + "," + n.Role);
             }
-            AddLine(lines, "  edges[" + FmtNum(path.Edges.Length) + "]{from,to,allowed,bidirectional,shortcut}:");
+            // 왜 주석이 먼저인가: 씨앗은 표 주석을 헤더 **위** 에 둔다. 순서가 바뀌면 바이트가 달라진다.
             AddLine(lines, E1);
             AddLine(lines, E2);
+            AddLine(lines, "  edges[" + FmtNum(path.Edges.Length) + "]{from,to,allowed,bidirectional,shortcut}:");
             for (int i = 0; i < path.Edges.Length; i++)
             {
                 var e = path.Edges[i];
-                string allowed = e.Allowed;
-                if (allowed == "All") allowed = "Escortee+Enemy+Ally";
-                AddLine(lines, "    " + Str(e.From) + "," + Str(e.To) + "," + allowed + "," + BoolStr(e.Bidirectional) + "," + BoolStr(e.Shortcut));
+                // 왜 그대로 쓰나: 씨앗은 'All' 을 'All' 로 적는다. 'Escortee+Enemy+Ally' 로 펴면
+                //   의미는 같아도 바이트가 달라진다. 축약형이 정본이다 (SDD-02 §4).
+                AddLine(lines, "    " + Str(e.From) + "," + Str(e.To) + "," + e.Allowed + "," + BoolStr(e.Bidirectional) + "," + BoolStr(e.Shortcut));
             }
-static void WriteSpawn(StageDocument.SpawnDef spawn, List<string> lines)
+        }
+
+        static void WriteSpawn(StageDocument.SpawnDef spawn, List<string> lines)
         {
             AddRange(lines, new[] { S1, S2, S3 });
             AddLine(lines, "spawn:");
@@ -171,15 +175,15 @@ static void WriteSpawn(StageDocument.SpawnDef spawn, List<string> lines)
             AddLine(lines, "  volleySpacing: " + FmtNum(spawn.VolleySpacing));
             AddLine(lines, "  restSeconds: " + FmtNum(spawn.RestSeconds));
             AddLine(lines, "  telegraphSeconds: " + FmtNum(spawn.TelegraphSeconds));
-            AddLine(lines, "  table[" + FmtNum(spawn.Table.Length) + "]{enemy,weight}:");
             AddLine(lines, T1);
+            AddLine(lines, "  table[" + FmtNum(spawn.Table.Length) + "]{enemy,weight}:");
             for (int i = 0; i < spawn.Table.Length; i++)
             {
                 var row = spawn.Table[i];
                 AddLine(lines, "    " + Str(row.Enemy) + "," + FmtNum(row.Weight));
             }
-            AddLine(lines, "  healthByProgress[" + FmtNum(spawn.HealthByProgress.Length) + "]{t,mul}:");
             AddLine(lines, H5);
+            AddLine(lines, "  healthByProgress[" + FmtNum(spawn.HealthByProgress.Length) + "]{t,mul}:");
             for (int i = 0; i < spawn.HealthByProgress.Length; i++)
             {
                 var hp = spawn.HealthByProgress[i];
@@ -212,7 +216,7 @@ static void WriteSpawn(StageDocument.SpawnDef spawn, List<string> lines)
                 AddLine(lines, "    " + d.Difficulty + "," + Str(d.DisplayName) + "," + FmtNum(d.KillReward) + "," + FmtNum(d.ResourcePerSecond));
             }
         }
-static void WriteEscortee(StageDocument.EscorteeDef escortee, List<string> lines)
+        static void WriteEscortee(StageDocument.EscorteeDef escortee, List<string> lines)
         {
             AddLine(lines, "escortee:");
             AddLine(lines, "  speed: " + FmtNum(escortee.Speed));
@@ -250,4 +254,3 @@ static void WriteEscortee(StageDocument.EscorteeDef escortee, List<string> lines
         }
     }
 }
-        }

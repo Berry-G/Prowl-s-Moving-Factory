@@ -68,7 +68,9 @@ namespace PMF.EditorTools.Authoring
                 OriginX = GreyboxMapData.Origin.x, OriginY = GreyboxMapData.Origin.y,
                 Cells = cells,
             };
-static StageDocument.PathDef BuildPath()
+        }
+
+        static StageDocument.PathDef BuildPath()
         {
             var nodes = new StageDocument.PathNodeDef[GreyboxMapData.Nodes.Length];
             for (int i = 0; i < GreyboxMapData.Nodes.Length; i++)
@@ -106,7 +108,10 @@ static StageDocument.PathDef BuildPath()
                 From = GreyboxMapData.Nodes[sf].Name,
                 To = GreyboxMapData.Nodes[st].Name,
                 Allowed = "Escortee",
-                Bidirectional = false,
+                // 왜 true 인가: 게임이 지름길을 포함한 모든 엣지를 양방향으로 만든다
+                //   (출처: SceneParts.cs:264 — Bidirectional 을 무조건 true 로 쓴다).
+                //   씨앗도 'N05,N08,Escortee,true,true' 다. 게임이 진실이다.
+                Bidirectional = true,
                 Shortcut = true,
             };
 
@@ -120,16 +125,26 @@ static StageDocument.PathDef BuildPath()
             for (int i = 0; i < table.Count; i++)
                 rows[i] = new StageDocument.SpawnTableRow
                 {
-                    Enemy = table[i].Enemy.DisplayName,
+                    // 왜 .name 인가: 파일은 EnemyDefinition 의 **에셋 이름**(Robot_Walker)을 참조한다.
+                    //   DisplayName 은 화면에 보이는 한글 이름("워커")이라 임포터가 에셋을 못 찾는다 (SDD-02 §4).
+                    Enemy = table[i].Enemy.name,
                     Weight = table[i].Weight,
                 };
 
-            // Hard-code: Stage_Greybox.asset 은 상수곡선 (0→1, 1→1)
-            var hp = new StageDocument.HealthPoint[]
+            // 왜 SerializedObject 인가: _enemyHealthByProgress 는 private 이고 StageDefinition 에는
+            //   키를 읽는 접근자가 없다. 익스포터는 에디터 전용이라 SerializedObject 로 읽어도 된다.
+            //   StageDefinition 에 필드를 더하지 않는다 (SDD-05 §4).
+            var curve = new SerializedObject(stage).FindProperty("_enemyHealthByProgress").animationCurveValue;
+            var hp = new StageDocument.HealthPoint[curve.length > 0 ? curve.length : 2];
+            if (curve.length > 0)
+                for (int i = 0; i < curve.length; i++)
+                    hp[i] = new StageDocument.HealthPoint { T = curve[i].time, Mul = curve[i].value };
+            else
             {
-                new() { T = 0, Mul = 1 },
-                new() { T = 1, Mul = 1 },
-            };
+                // 곡선이 비어 있으면 게임의 기본값과 같은 상수곡선으로 본다 (StageDefinition.cs:30).
+                hp[0] = new StageDocument.HealthPoint { T = 0, Mul = 1 };
+                hp[1] = new StageDocument.HealthPoint { T = 1, Mul = 1 };
+            }
 
             return new StageDocument.SpawnDef
             {
@@ -144,8 +159,10 @@ static StageDocument.PathDef BuildPath()
 
         static StageDocument.BurstDef BuildBurst(StageDefinition stage)
         {
+            // 왜 루프인가: BurstTriggerNodeIds 는 IReadOnlyList<string> 라 CopyTo 가 없다.
+            //   Linq ToArray 를 쓰면 되지만 using 하나를 더 늘리지 않는다.
             var triggers = new string[stage.BurstTriggerNodeIds.Count];
-            stage.BurstTriggerNodeIds.CopyTo(triggers, 0);
+            for (int i = 0; i < triggers.Length; i++) triggers[i] = stage.BurstTriggerNodeIds[i];
             return new StageDocument.BurstDef
             {
                 TriggerNodeIds = triggers,
@@ -207,4 +224,3 @@ static StageDocument.PathDef BuildPath()
             };
     }
 }
-        }
