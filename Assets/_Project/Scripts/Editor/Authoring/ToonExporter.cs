@@ -6,10 +6,12 @@ using PMF.Grid;
 
 namespace PMF.EditorTools.Authoring
 {
-    /// <summary>
-    /// Stage_Greybox.asset + GreyboxMapData → .toon 출력.
-    /// 설계 정본: 에디터 레포 docs/SDD-05-저작파이프라인.md
-    /// </summary>
+    /**
+ * 목적: Stage_Greybox.asset + GreyboxMapData 를 읽어 StageDocument DTO 를 만들고 ToonWriter 로 출력.
+ * 왜 이 구조인가: 익스포터는 .asset 실측값을 읽는다. GreyboxFactory 의 초기값(튜닝 전)이 아니다.
+ * 바꾸면 안 되는 것: .asset 의 float 값을 double 로 올려서 찍지 마라 (ToString("R") 은 float 로).
+ * 근거: SDD-05 §8 [D-05-08], ADR-E10
+ */
     public static class ToonExporter
     {
         const string OutputPath = "Assets/_Project/Data/Stages/Stage_Greybox.toon";

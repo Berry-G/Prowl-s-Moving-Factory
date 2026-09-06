@@ -1,3 +1,10 @@
+/**
+ * 목적: 전처리된 TOON 줄을 재귀적으로 파싱해 ObjectNode 트리로 만든다.
+ * 왜 이 구조인가: ToonReader.Pre/Sp/Pv 로 줄 분류와 값 해석을 외부에 위임했다.
+ *   Parser 는 구조(들여쓰기 깊이로 객체·표·배열·스칼라 분기)만 담당한다.
+ * 바꾸면 안 되는 것: 표 행 수 N 강제, 키 중복 거부, 들여쓰기 깊이 오류 거부, 조용히 무시 금지.
+ * 근거: SDD-05 §3 [D-05-03], SDD-02 §6 [D-02-07]
+ */
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;

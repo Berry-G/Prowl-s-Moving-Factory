@@ -1,3 +1,9 @@
+/**
+ * 목적: TOON 텍스트 전처리와 기본 값 해석 (주석 제거, 들여쓰기-깊이, 인용 이스케이프, 분할).
+ * 왜 이 구조인가: ToonParser 와 분리했다 — 전처리·값 해석을 단위 테스트로 따로 검증할 수 있다.
+ * 바꾸면 안 되는 것: 주석 제거 pre-pass, 들여쓰기 2칸 단위, null 금지, 조용히 무시 금지.
+ * 근거: SDD-05 §3 [D-05-03], SDD-02 §6 [D-02-07]
+ */
 using System;
 using System.Collections.Generic;
 using System.Text;

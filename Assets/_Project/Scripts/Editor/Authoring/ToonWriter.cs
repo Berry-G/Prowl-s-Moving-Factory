@@ -5,10 +5,12 @@ using System.Text;
 
 namespace PMF.EditorTools.Authoring
 {
-    /// <summary>
-    /// StageDocument → TOON 정규 출력. 바이트 동일이 목표.
-    /// 설계 정본: 에디터 레포 docs/SDD-05-저작파이프라인.md, src/core/toon/encode.ts
-    /// </summary>
+    /**
+     * 목적: StageDocument → TOON 정규 출력. 바이트 동일이 목표.
+     * 왜 이 구조인가: TS encode.ts 의 C# 포팅. 같은 입력 = 같은 출력이어야 TS·C# 두 구현이 같은 계약을 본 증거가 된다.
+     * 바꾸면 안 되는 것: 섹션·키 순서, formatNumber (float.ToString("R")), 주석 문구·들여쓰기. 씨앗과 바이트가 달라진다.
+     * 근거: SDD-05 §3 [D-05-03], SDD-02 §6-1 [D-02-08], ADR-E10
+     */
     public static class ToonWriter
     {
         // 주석은 씨앗 파일(Stage_Greybox.toon)과 정확히 같아야 한다.

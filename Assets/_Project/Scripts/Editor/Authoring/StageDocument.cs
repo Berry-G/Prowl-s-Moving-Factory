@@ -1,9 +1,11 @@
 namespace PMF.EditorTools.Authoring
 {
-    /// <summary>
-    /// TOON 형식으로 직렬화할 수 있는 스테이지 데이터의 C# 구조체.
-    /// 설계 정본: 에디터 레포 docs/SDD-05-저작파이프라인.md
-    /// </summary>
+    /**
+ * 목적: .toon ↔ C# 사이의 순수 DTO. SDD-02 §1 의 C# 판. Unity 타입 의존 0.
+ * 왜 이 구조인가: EditMode 테스트가 에셋 없이 돌 수 있고, TS StageDocument 와 1:1 대응한다.
+ * 바꾸면 안 되는 것: 필드명·타입. TS 쪽과 맞지 않으면 ToonWriter/ToonReader 가 깨진다.
+ * 근거: SDD-05 §4 [D-05-04], SDD-02 §1 [D-02-01]
+ */
     public struct StageDocument
     {
         public string Schema;
