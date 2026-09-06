@@ -83,7 +83,14 @@ namespace PMF.EditorTools.Authoring
                     cells[y*wi+x]=cv;
                 }
             }
-            doc.Map=new StageDocument.MapDef{Width=wi,Height=he,Cells=cells};
+            // origin: 선택 사항. [2] 배열. 기본값 = 중심 정렬.
+            float ox = -(wi/2f), oy = -(he/2f);
+            if (mn.Entries.TryGetValue("origin", out var oe) && oe is ToonReader.ArrayNode an)
+            {
+                if (an.Items.Count >= 2 && an.Items[0] is double oxd && an.Items[1] is double oyd)
+                { ox = (float)oxd; oy = (float)oyd; }
+            }
+            doc.Map=new StageDocument.MapDef{Width=wi,Height=he,OriginX=ox,OriginY=oy,Cells=cells};
             return true;
         }
 

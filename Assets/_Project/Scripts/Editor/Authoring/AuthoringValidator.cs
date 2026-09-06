@@ -22,6 +22,7 @@ namespace PMF.EditorTools.Authoring
             // V-F02
             if (string.IsNullOrEmpty(doc.Name) || Regex.IsMatch(doc.Name, @"[\\/:*?""<>|]") || doc.Name.Trim() != doc.Name)
                 A("V-F02","error","name",$"name \"{doc.Name}\" 은(는) 파일 이름으로 쓸 수 없다");
+            if (_is.Exists(i => i.Severity == "error")) return _is;
 
             // V-M03
             bool hv = false;
@@ -66,6 +67,7 @@ namespace PMF.EditorTools.Authoring
                 if (pv.bc==0)
                     A("V-M07","error","map",$"마을 ({pv.vx},{pv.vy}) 에서 갈 수 있는 배치 칸이 없다");
             }
+            if (_is.Exists(i => i.Severity == "error")) return _is;
 
             // V-P02
             int sc = 0, xc = 0;
@@ -281,7 +283,8 @@ static List<Pt> FloodFill(StageDocument.MapDef m, int sx, int sy, System.Func<Ce
             for (int i=0;i<es.Length;i++)
             {
                 var e=es[i];
-                if (!idMap.TryGetValue(e.From,out int f)||!idMap.TryGetValue(e.To,out int t)) continue;
+                if (!idMap.TryGetValue(e.From,out int f)||!idMap.TryGetValue(e.To,out int t))
+                    throw new System.Exception($"노드 없음: {(!idMap.ContainsKey(e.From)?e.From:e.To)}");
                 if (e.Shortcut) continue;
                 float dx=ns[f].X-ns[t].X, dy=ns[f].Y-ns[t].Y;
                 float cost=(float)System.Math.Sqrt(dx*dx+dy*dy);
