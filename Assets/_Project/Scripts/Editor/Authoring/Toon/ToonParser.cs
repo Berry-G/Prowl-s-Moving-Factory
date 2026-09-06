@@ -46,7 +46,9 @@ namespace PMF.EditorTools.Authoring.Toon
                         var cells = ToonReader.Sp(lines[idx].Body);
                         if (cells.Length != flds.Count) return E_(lines[idx].Line, $"{flds.Count}열인데 {cells.Length}열");
                         var pv = new List<object>();
-                        foreach (var cell in cells) pv.Add(ToonReader.Pv(cell, lines[idx].Line));
+                        foreach (var cell in cells)
+                            try { pv.Add(ToonReader.Pv(cell, lines[idx].Line)); }
+                            catch (Exception ex) { return E_(lines[idx].Line, ex.Message); }
                         rows.Add(pv);
                     }
                     int nxt = k + 1 + n;
@@ -59,10 +61,15 @@ namespace PMF.EditorTools.Authoring.Toon
                 if (am.Success)
                 {
                     string key = am.Groups[1].Value; int n = int.Parse(am.Groups[2].Value); string rest = am.Groups[3].Value;
-                    var items = n == 0 ? new List<object>() : new List<object>(Array.ConvertAll(ToonReader.Sp(rest), v => ToonReader.Pv(v, L.Line)));
-                    if (items.Count != n) return E_(L.Line, $"배열 {key} {n}개인데 {items.Count}개");
-                    if (node.Entries.ContainsKey(key)) return E_(L.Line, $"키 {key} 중복");
-                    node.Entries[key] = new ToonReader.ArrayNode { Items = items, Line = L.Line }; k++; continue;
+                    try
+                    {
+                        var items = n == 0 ? new List<object>() : new List<object>();
+                        if (n > 0) { var sp = ToonReader.Sp(rest); foreach (var v in sp) items.Add(ToonReader.Pv(v, L.Line)); }
+                        if (items.Count != n) return E_(L.Line, $"배열 {key} {n}개인데 {items.Count}개");
+                        if (node.Entries.ContainsKey(key)) return E_(L.Line, $"키 {key} 중복");
+                        node.Entries[key] = new ToonReader.ArrayNode { Items = items, Line = L.Line }; k++; continue;
+                    }
+                    catch (Exception ex) { return E_(L.Line, ex.Message); }
                 }
                 var om = Regex.Match(L.Body, RO);
                 if (om.Success)
@@ -79,8 +86,8 @@ namespace PMF.EditorTools.Authoring.Toon
                 {
                     string key = sm.Groups[1].Value; string rv = sm.Groups[2].Value;
                     if (node.Entries.ContainsKey(key)) return E_(L.Line, $"키 {key} 중복");
-                    node.Entries[key] = new ToonReader.ScalarNode { Value = ToonReader.Pv(rv, L.Line), Line = L.Line };
-                    k++; continue;
+                    try { node.Entries[key] = new ToonReader.ScalarNode { Value = ToonReader.Pv(rv, L.Line), Line = L.Line }; k++; continue; }
+                    catch (Exception ex) { return E_(L.Line, ex.Message); }
                 }
                 return E_(L.Line, $"해석 불가: {L.Body}");
             }
