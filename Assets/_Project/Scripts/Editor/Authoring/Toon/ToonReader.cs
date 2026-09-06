@@ -14,16 +14,16 @@ namespace PMF.EditorTools.Authoring.Toon
     public static class ToonReader
     {
         public class Error { public int Line; public string Message; }
-        public abstract class Node { public int Line; }
-        public class ScalarNode : Node { public object Value; }
-        public class ArrayNode : Node { public List<object> Items = new(); }
-        public class TableNode : Node { public List<string> Fields = new(); public List<List<object>> Rows = new(); }
-        public class ObjectNode : Node { public Dictionary<string, Node> Entries = new(); }
+        public abstract class Node { public int Line; public abstract string Kind { get; } }
+        public class ScalarNode : Node { public object Value; public override string Kind => "scalar"; }
+        public class ArrayNode : Node { public List<object> Items = new(); public override string Kind => "array"; }
+        public class TableNode : Node { public List<string> Fields = new(); public List<List<object>> Rows = new(); public override string Kind => "table"; }
+        public class ObjectNode : Node { public Dictionary<string, Node> Entries = new(); public override string Kind => "object"; }
         public class ParseResult<T> { public bool Ok; public T Value; public Error Error; public int NextIdx; }
         static ParseResult<T> R<T>(T v, int n = -1) => new() { Ok = true, Value = v, NextIdx = n };
         static ParseResult<T> E<T>(int l, string m) => new() { Ok = false, Error = new Error { Line = l, Message = m } };
         internal struct Ln { public int Line, Depth; public string Body; }
-        class Px : Exception { public int Line; public Px(int l, string m) : base(m) { Line = l; } }
+        internal class Px : Exception { public int Line; public Px(int l, string m) : base(m) { Line = l; } }
 
         internal static ParseResult<List<Ln>> Pre(string text)
         {

@@ -48,7 +48,7 @@ namespace PMF.EditorTools.Authoring.Toon
                         var pv = new List<object>();
                         foreach (var cell in cells)
                             try { pv.Add(ToonReader.Pv(cell, lines[idx].Line)); }
-                            catch (Exception ex) { return E_(lines[idx].Line, ex.Message); }
+                            catch (ToonReader.Px ex) { return E_(ex.Line, ex.Message); }
                         rows.Add(pv);
                     }
                     int nxt = k + 1 + n;
@@ -69,7 +69,7 @@ namespace PMF.EditorTools.Authoring.Toon
                         if (node.Entries.ContainsKey(key)) return E_(L.Line, $"키 {key} 중복");
                         node.Entries[key] = new ToonReader.ArrayNode { Items = items, Line = L.Line }; k++; continue;
                     }
-                    catch (Exception ex) { return E_(L.Line, ex.Message); }
+                    catch (ToonReader.Px ex) { return E_(ex.Line, ex.Message); }
                 }
                 var om = Regex.Match(L.Body, RO);
                 if (om.Success)
@@ -87,7 +87,7 @@ namespace PMF.EditorTools.Authoring.Toon
                     string key = sm.Groups[1].Value; string rv = sm.Groups[2].Value;
                     if (node.Entries.ContainsKey(key)) return E_(L.Line, $"키 {key} 중복");
                     try { node.Entries[key] = new ToonReader.ScalarNode { Value = ToonReader.Pv(rv, L.Line), Line = L.Line }; k++; continue; }
-                    catch (Exception ex) { return E_(L.Line, ex.Message); }
+                    catch (ToonReader.Px ex) { return E_(ex.Line, ex.Message); }
                 }
                 return E_(L.Line, $"해석 불가: {L.Body}");
             }
