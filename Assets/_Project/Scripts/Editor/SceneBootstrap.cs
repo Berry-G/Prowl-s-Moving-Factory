@@ -30,7 +30,7 @@ namespace PMF.EditorTools
             SetupCamera();
             SceneParts.BuildMap(factory);
             SceneParts.BuildServices(factory);
-            SceneParts.BuildPathNodes();
+            SceneParts.BuildPathNodes(factory);
             SceneParts.BuildActors(factory);
             SceneParts.BuildUI();
             ApplyScriptExecutionOrder();

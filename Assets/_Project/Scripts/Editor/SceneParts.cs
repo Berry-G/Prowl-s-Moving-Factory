@@ -26,7 +26,8 @@ namespace PMF.EditorTools
             // GridSystem._origin 과 Grid.transform.position 은 반드시 일치.
             var gridGo = new GameObject("Grid");
             gridGo.transform.SetParent(mapRoot.transform);
-            gridGo.transform.position = GreyboxMapData.Origin;
+            var origin = factory.Map != null ? new Vector3(factory.Map.Origin.x, factory.Map.Origin.y, 0f) : GreyboxMapData.Origin;
+            gridGo.transform.position = origin;
 
             var grid = gridGo.AddComponent<UnityEngine.Grid>();
             grid.cellSize = new Vector3(1f, 1f, 0f);
@@ -40,7 +41,6 @@ namespace PMF.EditorTools
 
             var tileGround = GreyboxSprites.GetOrCreateTile("Tile_Ground",
                 new Color(0.24f, 0.24f, 0.27f), factory.Square);
-            // 채도 없는 회색은 Ground 와 명도만 다르고 색상은 같아서 눈에 잘 안 띈다 — 색조를 확실히 다르게.
             var tileRoad = GreyboxSprites.GetOrCreateTile("Tile_Road",
                 new Color(0.74f, 0.6f, 0.4f), factory.Square);
             var tileBuildable = GreyboxSprites.GetOrCreateTile("Tile_Buildable",
@@ -49,17 +49,29 @@ namespace PMF.EditorTools
                 new Color(0.25f, 0.6f, 0.3f), factory.Square);
             var tileBlocked = GreyboxSprites.GetOrCreateTile("Tile_Blocked",
                 new Color(0.1f, 0.1f, 0.12f), factory.Square);
-            // 물은 벽과 <b>한눈에 구분되어야 한다</b> — 통행은 같지만 사거리 규칙이 다르기 때문이다 (G-22).
-            // 벽은 거의 검정, 물은 짙은 파랑.
             var tileWater = GreyboxSprites.GetOrCreateTile("Tile_Water",
                 new Color(0.13f, 0.28f, 0.5f), factory.Square);
 
-            for (int y = 0; y < GreyboxMapData.Height; y++)
+            int w = factory.Map != null ? factory.Map.Width : GreyboxMapData.Width;
+            int h = factory.Map != null ? factory.Map.Height : GreyboxMapData.Height;
+
+            for (int y = 0; y < h; y++)
             {
-                for (int x = 0; x < GreyboxMapData.Width; x++)
+                for (int x = 0; x < w; x++)
                 {
                     var pos = new Vector3Int(x, y, 0);
-                    switch (GreyboxMapData.GetCategory(x, y))
+                    GreyboxMapData.Category cat;
+                    if (factory.Map != null)
+                    {
+                        // 🔴 숫자 캐스팅 금지 — 두 열거형의 값이 다르다. 반드시 이름으로 switch.
+                        if (!factory.Map.TryGetCell(x, y, out var ct)) continue; // 255 = 타일 없음
+                        cat = CellTypeToCategory(ct);
+                    }
+                    else
+                    {
+                        cat = GreyboxMapData.GetCategory(x, y);
+                    }
+                    switch (cat)
                     {
                         case GreyboxMapData.Category.Ground:    ground.SetTile(pos, tileGround); break;
                         case GreyboxMapData.Category.Road:      road.SetTile(pos, tileRoad); break;
@@ -80,6 +92,21 @@ namespace PMF.EditorTools
                              blocked.GetComponent<Tilemap>());
 
             DrawExitMarker(mapRoot.transform);
+        }
+
+        /// <summary>CellType(게임 enum) → GreyboxMapData.Category(저작). 숫자 캐스팅 금지.</summary>
+        private static GreyboxMapData.Category CellTypeToCategory(CellType ct)
+        {
+            switch (ct)
+            {
+                case CellType.Ground:      return GreyboxMapData.Category.Ground;
+                case CellType.Road:        return GreyboxMapData.Category.Road;
+                case CellType.Buildable:   return GreyboxMapData.Category.Buildable;
+                case CellType.VillageSlot:     return GreyboxMapData.Category.Village;
+                case CellType.Blocked:     return GreyboxMapData.Category.Blocked;
+                case CellType.Water:       return GreyboxMapData.Category.Water;
+                default:                   return GreyboxMapData.Category.Empty;
+            }
         }
 
         private static Tilemap MakeTilemap(Transform parent, string name,
@@ -212,7 +239,7 @@ namespace PMF.EditorTools
 
         // ---------- 경로 노드 ----------
 
-        internal static void BuildPathNodes()
+        internal static void BuildPathNodes(GreyboxFactory.Result factory)
         {
             var graph = Object.FindAnyObjectByType<PathGraph>();
             if (graph == null)
@@ -221,25 +248,50 @@ namespace PMF.EditorTools
                 return;
             }
 
-            var authors = new PathNodeAuthoring[GreyboxMapData.Nodes.Length];
-            for (int i = 0; i < GreyboxMapData.Nodes.Length; i++)
+            if (factory.Path != null)
             {
-                var def = GreyboxMapData.Nodes[i];
-                var go = new GameObject(def.Name);
-                go.transform.SetParent(graph.transform);
-                go.transform.position = CellCenterWorld(def.Cell);
-
-                var authoring = go.AddComponent<PathNodeAuthoring>();
-                SetNodeFlags(authoring, def.IsStart, def.IsExit);
-                authors[i] = authoring;
+                // PathDefinition 으로부터 노드·엣지 생성
+                var nds = factory.Path.Nodes;
+                var authors = new PathNodeAuthoring[nds.Length];
+                var authoringMap = new System.Collections.Generic.Dictionary<string, PathNodeAuthoring>();
+                for (int i = 0; i < nds.Length; i++)
+                {
+                    var def = nds[i];
+                    var go = new GameObject(def.Id);
+                    go.transform.SetParent(graph.transform);
+                    go.transform.position = CellCenterWorld(new Vector2Int(def.X, def.Y));
+                    var authoring = go.AddComponent<PathNodeAuthoring>();
+                    SetNodeFlags(authoring, def.Role == "start", def.Role == "exit");
+                    authors[i] = authoring;
+                    authoringMap[def.Id] = authoring;
+                }
+                var eds = factory.Path.Edges;
+                for (int i = 0; i < eds.Length; i++)
+                {
+                    var e = eds[i];
+                    if (authoringMap.TryGetValue(e.From, out var from) && authoringMap.TryGetValue(e.To, out var to))
+                        Connect(from, to, e.Allowed, e.Bidirectional, e.Shortcut);
+                }
             }
-
-            // 엣지 저작 (Bidirectional=true, Allowed=All) + 지름길 1개 (Escortee 전용).
-            foreach (var (from, to) in GreyboxMapData.Edges)
-                Connect(authors[from], authors[to], false);
-
-            var sc = GreyboxMapData.ShortcutEdge;
-            Connect(authors[sc.from], authors[sc.to], true);
+            else
+            {
+                // 폴백: GreyboxMapData 상수
+                var authors = new PathNodeAuthoring[GreyboxMapData.Nodes.Length];
+                for (int i = 0; i < GreyboxMapData.Nodes.Length; i++)
+                {
+                    var def = GreyboxMapData.Nodes[i];
+                    var go = new GameObject(def.Name);
+                    go.transform.SetParent(graph.transform);
+                    go.transform.position = CellCenterWorld(def.Cell);
+                    var authoring = go.AddComponent<PathNodeAuthoring>();
+                    SetNodeFlags(authoring, def.IsStart, def.IsExit);
+                    authors[i] = authoring;
+                }
+                foreach (var (from, to) in GreyboxMapData.Edges)
+                    Connect(authors[from], authors[to], "All", true, false);
+                var sc = GreyboxMapData.ShortcutEdge;
+                Connect(authors[sc.from], authors[sc.to], "Escortee", true, true);
+            }
         }
 
         private static void SetNodeFlags(PathNodeAuthoring authoring, bool isStart, bool isExit)
@@ -250,7 +302,21 @@ namespace PMF.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void Connect(PathNodeAuthoring from, PathNodeAuthoring to, bool shortcut)
+        /// <summary>"All" → All(7), "Escortee+Enemy" → 3, etc.</summary>
+        private static PathAgent ParseAllowed(string allowed)
+        {
+            if (allowed == "All") return PathAgent.All;
+            int bits = 0;
+            foreach (var part in allowed.Split('+'))
+            {
+                if (part == "Escortee") bits |= (int)PathAgent.Escortee;
+                else if (part == "Enemy") bits |= (int)PathAgent.Enemy;
+                else if (part == "Ally") bits |= (int)PathAgent.Ally;
+            }
+            return (PathAgent)bits;
+        }
+
+        private static void Connect(PathNodeAuthoring from, PathNodeAuthoring to, string allowed, bool bidirectional, bool shortcut)
         {
             var so = new SerializedObject(from);
             var array = so.FindProperty("_connections");
@@ -258,10 +324,9 @@ namespace PMF.EditorTools
             array.arraySize++;
             var element = array.GetArrayElementAtIndex(index);
             element.FindPropertyRelative("Target").objectReferenceValue = to;
-            element.FindPropertyRelative("Allowed").intValue =
-                shortcut ? (int)PathAgent.Escortee : (int)PathAgent.All;
+            element.FindPropertyRelative("Allowed").intValue = (int)ParseAllowed(allowed);
             element.FindPropertyRelative("IsShortcut").boolValue = shortcut;
-            element.FindPropertyRelative("Bidirectional").boolValue = true;
+            element.FindPropertyRelative("Bidirectional").boolValue = bidirectional;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -273,22 +338,50 @@ namespace PMF.EditorTools
             _actorsRoot.FindOrAddChild("Enemies");
             _actorsRoot.FindOrAddChild("Allies");
 
+            // 시작 노드 셀 — Map/Path 가 있으면 PathDefinition 의 start 노드, 없으면 GreyboxMapData 폴백.
+            Vector2Int startCell;
+            if (factory.Path != null)
+            {
+                var startNd = System.Array.Find(factory.Path.Nodes, n => n.Role == "start");
+                startCell = startNd.X != 0 || startNd.Y != 0 || startNd.Role == "start"
+                    ? new Vector2Int(startNd.X, startNd.Y) : GreyboxMapData.EscorteeSpawnCell;
+            }
+            else
+            {
+                startCell = GreyboxMapData.EscorteeSpawnCell;
+            }
+
             // 보호대상 — 시작 노드 셀 중심.
             Object.Instantiate(factory.EscorteePrefab,
-                        CellCenterWorld(GreyboxMapData.EscorteeSpawnCell),
+                        CellCenterWorld(startCell),
                         Quaternion.identity, _actorsRoot).name = "Escortee";
 
-            // 모체 — 우측 빌드가능 지역.
+            // 모체 — 같은 시작 노드 셀 (추격자 그림).
             Object.Instantiate(factory.MotherPrefab,
-                        CellCenterWorld(GreyboxMapData.MotherSpawnCell),
+                        CellCenterWorld(startCell),
                         Quaternion.identity, _actorsRoot).name = "Mother";
 
-            // 마을 3곳.
+            // 마을 — Map 이 있으면 셀에서 VillageSlot 전부를 수집.
+            // 순서는 y 내림차순, x 오름차순 (씬 계층 순서 안정).
+            var villages = new System.Collections.Generic.List<Vector2Int>();
+            if (factory.Map != null)
+            {
+                for (int y = 0; y < factory.Map.Height; y++)
+                    for (int x = 0; x < factory.Map.Width; x++)
+                        if (factory.Map.TryGetCell(x, y, out var ct) && ct == CellType.VillageSlot)
+                            villages.Add(new Vector2Int(x, y));
+                villages.Sort((a, b) => a.y != b.y ? b.y.CompareTo(a.y) : a.x.CompareTo(b.x));
+            }
+            else
+            {
+                villages.AddRange(GreyboxMapData.Villages);
+            }
+
             var villagesParent = new GameObject("Villages").transform;
             villagesParent.SetParent(GameObject.Find("--- Map ---").transform);
-            for (int i = 0; i < GreyboxMapData.Villages.Length; i++)
+            for (int i = 0; i < villages.Count; i++)
             {
-                var v = GreyboxMapData.Villages[i];
+                var v = villages[i];
                 Object.Instantiate(factory.VillagePrefab, CellCenterWorld(v),
                             Quaternion.identity, villagesParent).name = $"Village_{i + 1}";
             }

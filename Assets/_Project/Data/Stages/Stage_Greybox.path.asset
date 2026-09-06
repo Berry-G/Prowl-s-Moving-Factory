@@ -1,0 +1,170 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d5fd60f8c95f7945a6e18c8106b044c, type: 3}
+  m_Name: Stage_Greybox.path
+  m_EditorClassIdentifier: PMF.Runtime::PMF.Data.PathDefinition
+  _nodes:
+  - Id: N00_start
+    Role: start
+    X: 1
+    Y: 9
+  - Id: N01
+    Role: waypoint
+    X: 5
+    Y: 9
+  - Id: N02
+    Role: waypoint
+    X: 8
+    Y: 9
+  - Id: N03
+    Role: waypoint
+    X: 8
+    Y: 4
+  - Id: N04
+    Role: waypoint
+    X: 11
+    Y: 4
+  - Id: N05
+    Role: waypoint
+    X: 15
+    Y: 4
+  - Id: N06
+    Role: waypoint
+    X: 16
+    Y: 4
+  - Id: N07
+    Role: waypoint
+    X: 16
+    Y: 13
+  - Id: N08
+    Role: waypoint
+    X: 18
+    Y: 13
+  - Id: N09
+    Role: waypoint
+    X: 21
+    Y: 13
+  - Id: N10
+    Role: waypoint
+    X: 24
+    Y: 13
+  - Id: N11
+    Role: waypoint
+    X: 24
+    Y: 6
+  - Id: N12
+    Role: waypoint
+    X: 27
+    Y: 6
+  - Id: N13_exit
+    Role: exit
+    X: 30
+    Y: 6
+  - Id: B01_branch
+    Role: branch
+    X: 12
+    Y: 8
+  - Id: B02_branch
+    Role: branch
+    X: 20
+    Y: 10
+  _edges:
+  - From: N00_start
+    To: N01
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N01
+    To: N02
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N02
+    To: N03
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N03
+    To: N04
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N04
+    To: N05
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N05
+    To: N06
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N06
+    To: N07
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N07
+    To: N08
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N08
+    To: N09
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N09
+    To: N10
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N10
+    To: N11
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N11
+    To: N12
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N12
+    To: N13_exit
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: B01_branch
+    To: N04
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: B01_branch
+    To: N05
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: B02_branch
+    To: N08
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: B02_branch
+    To: N09
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N05
+    To: N08
+    Allowed: Escortee
+    Bidirectional: 1
+    Shortcut: 1

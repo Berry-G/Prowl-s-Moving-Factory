@@ -25,6 +25,8 @@ namespace PMF.EditorTools
             public GameObject RatPrefab;        // Ally_RatFolk
             public GameObject VillagePrefab;
             public StageDefinition Stage;
+            public MapDefinition Map;
+            public PathDefinition Path;
             public EnemyDefinition EnemyDef;    // Robot_Walker
             public EnemyDefinition ScoutDef;    // Robot_Scout
             public UnitDefinition RatDef;       // Ally_RatFolk
@@ -62,6 +64,10 @@ namespace PMF.EditorTools
             WireUnitPrefab(result.RatDef, result.RatPrefab);
 
             AssetDatabase.SaveAssets();
+            // 맵·경로 SO (임포터가 만든 것, 없으면 null = 폴백)
+            var stageName = EditorPrefs.GetString("PMF.Authoring.CurrentStage", "Stage_Greybox");
+            result.Map = AssetDatabase.LoadAssetAtPath<MapDefinition>($"{DataRoot}/Stages/{stageName}.map.asset");
+            result.Path = AssetDatabase.LoadAssetAtPath<PathDefinition>($"{DataRoot}/Stages/{stageName}.path.asset");
             return result;
         }
 
