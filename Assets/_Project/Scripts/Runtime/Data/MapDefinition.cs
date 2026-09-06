@@ -1,4 +1,5 @@
 using UnityEngine;
+using PMF.Grid;
 
 namespace PMF.Data
 {
@@ -26,6 +27,24 @@ namespace PMF.Data
             _height = height;
             _origin = origin;
             _cells = cells;
+        }
+
+        /// <summary>(x,y) 좌표의 셀 타입을 돌려준다. 타일이 없으면(255) false.</summary>
+        public bool TryGetCell(int x, int y, out CellType cell)
+        {
+            if (x < 0 || x >= _width || y < 0 || y >= _height)
+            {
+                cell = CellType.Blocked;
+                return false;
+            }
+            int idx = y * _width + x;
+            if (idx < 0 || idx >= _cells.Length || _cells[idx] == 255)
+            {
+                cell = CellType.Blocked;
+                return false;
+            }
+            cell = (CellType)_cells[idx];
+            return true;
         }
     }
 }

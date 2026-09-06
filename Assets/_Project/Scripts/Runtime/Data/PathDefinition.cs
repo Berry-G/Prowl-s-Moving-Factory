@@ -12,6 +12,11 @@ namespace PMF.Data
         [SerializeField] private NodeDef[] _nodes;
         [SerializeField] private EdgeDef[] _edges;
 
+public void Set(NodeDef[] nodes, EdgeDef[] edges)
+        {
+            _nodes = nodes;
+            _edges = edges;
+        }
         public NodeDef[] Nodes => _nodes;
         public EdgeDef[] Edges => _edges;
 
