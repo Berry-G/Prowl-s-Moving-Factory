@@ -17,19 +17,22 @@ namespace PMF.EditorTools.Authoring
         const string OutputPath = "Assets/_Project/Data/Stages/Stage_Greybox.toon";
 
         [MenuItem("PMF/Export .toon")]
-        public static void Export()
+        public static void Export() => Export("Stage_Greybox");
+
+        public static void Export(string stageName)
         {
-            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(GreyboxFactory.StageAssetPath);
+            string path = $"Assets/_Project/Data/Stages/{stageName}.toon";
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>($"Assets/_Project/Data/Stages/{stageName}.asset");
             if (stage == null)
             {
-                Debug.LogError("[ToonExporter] Stage_Greybox.asset 를 찾을 수 없습니다");
+                Debug.LogError($"[ToonExporter] {stageName}.asset 를 찾을 수 없습니다");
                 return;
             }
 
             var doc = new StageDocument
             {
                 Schema = "pmf.stage/1",
-                Name = "Stage_Greybox",
+                Name = stageName,
                 Map = BuildMap(),
                 Path = BuildPath(),
                 Spawn = BuildSpawn(stage),
@@ -42,9 +45,9 @@ namespace PMF.EditorTools.Authoring
             };
 
             string toon = ToonWriter.Write(doc);
-            File.WriteAllText(OutputPath, toon);
+            File.WriteAllText(path, toon);
             AssetDatabase.Refresh();
-            Debug.Log($"[ToonExporter] {OutputPath} ({toon.Length} 바이트)");
+            Debug.Log($"[ToonExporter] {path} ({toon.Length} 바이트)");
         }
 
         static StageDocument.MapDef BuildMap()

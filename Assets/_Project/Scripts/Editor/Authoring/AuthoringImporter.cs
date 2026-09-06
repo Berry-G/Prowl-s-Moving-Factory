@@ -103,7 +103,6 @@ var tp = so.FindProperty("_spawnTable"); tp.ClearArray(); tp.arraySize = d.Spawn
                 so.ApplyModifiedProperties();
                 EditorUtility.SetDirty(stageDef);
                 AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
             } catch (Exception ex) {
                 Debug.LogError("[Importer] Write failed - git checkout Data/Stages: " + ex.Message);
                 return Fail("Write failed: " + ex.Message, issues);
