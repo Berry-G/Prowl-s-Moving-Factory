@@ -37,5 +37,5 @@ namespace PMF.EditorTools.Authoring
         public struct ToggleDef { public bool AlliesCanDieWhileMarching, EnemiesTargetAllies; }
     }
 
-    public enum CellType { Empty = 0, Ground = 1, Road = 2, Buildable = 3, Village = 4, Blocked = 5, Water = 6 }
+    public enum CellType { Blocked = 0, Ground = 1, Road = 2, Buildable = 3, Village = 4, Water = 5, Empty = 255 }
 }

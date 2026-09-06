@@ -46,10 +46,7 @@ namespace PMF.Tests
         {
             var r = StageDocumentReader.Read(R("V-M01.toon"));
             Assert.That(r.Ok, Is.False);
-            // The parser catches the row count mismatch before the reader:
-            // V-M01 fixture has rows[7] with 8 data rows, parser rejects before V-M01 check.
-            // Accept either V-M01 (reader-level) or V-F03 (parser-level) depending on which catches it.
-            Assert.That(r.Issues[0].Id, Is.EqualTo("V-M01").Or.EqualTo("V-F03"));
+            Assert.That(r.Issues[0].Id, Is.EqualTo("V-M01"));
         }
 
         [Test]
