@@ -166,5 +166,5 @@ MonoBehaviour:
   - From: N05
     To: N08
     Allowed: Escortee
-    Bidirectional: 1
+    Bidirectional: 0
     Shortcut: 1
