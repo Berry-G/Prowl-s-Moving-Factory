@@ -1,4 +1,10 @@
-/** .toon -> SO 임포트. SDD-05 §6. _resourcePerSecond 건드리지 않음. */
+/**
+ * 목적: .toon 파일 → ScriptableObject(StageDefinition + MapDefinition + PathDefinition) 임포트.
+ * 왜 이 구조인가: 검증 통과 전에 AssetDatabase 를 한 번도 안 만지는 것이 핵심 설계.
+ *   그래야 "전부 성공하거나 전부 취소" 가 보장된다. 쓰기 단계 예외는 버그이므로 git 복구 메시지를 남긴다.
+ * 바꾸면 안 되는 것: 검증 실패 시 에셋을 건드리는 것. _resourcePerSecond 는 임포터가 건드리지 않는다 (난이도 표 폴백).
+ * 근거: SDD-05 §6 [D-05-06], SDD-02 §4 [D-02-05]
+ */
 using System; using System.Collections.Generic; using System.IO; using System.Linq;
 using UnityEditor; using UnityEngine; using PMF.Data; using PMF.Grid;
 namespace PMF.EditorTools.Authoring {
@@ -97,6 +103,7 @@ var tp = so.FindProperty("_spawnTable"); tp.ClearArray(); tp.arraySize = d.Spawn
                 so.ApplyModifiedProperties();
                 EditorUtility.SetDirty(stageDef);
                 AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
             } catch (Exception ex) {
                 Debug.LogError("[Importer] Write failed - git checkout Data/Stages: " + ex.Message);
                 return Fail("Write failed: " + ex.Message, issues);
