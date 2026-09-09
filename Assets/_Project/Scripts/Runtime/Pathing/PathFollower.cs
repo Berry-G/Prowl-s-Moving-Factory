@@ -40,7 +40,7 @@ namespace PMF.Pathing
         /// <summary>
         /// 경로 중간에 호출될 수 있다. 현재 위치에서 새 경로의 첫 노드로 이어지도록 처리한다.
         /// route[0] 은 항상 "지금 향하고 있거나 방금 지난 노드"여야 한다.
-        /// 어긋나면 LogWarning 을 찍고 startPosition 에 서 있는 것을 유지한다 (순간이동은 호출자 몫).
+        /// 현재 위치를 유지하고 첫 코너를 방문한다. 이미 첫 엣지 위라면 역주행하지 않는다.
         /// </summary>
         public void SetRoute(IReadOnlyList<PathNode> route, Vector3 startPosition)
         {
@@ -50,31 +50,25 @@ namespace PMF.Pathing
                 Clear();
                 return;
             }
-
             for (int i = 0; i < route.Count; i++) _route.Add(route[i]);
 
-            // 이 메서드는 <b>엣지 중간에 호출되는 것이 정상</b>이다(위 요약 참조).
-            // route[0] 에 정확히 서 있으라고 요구하면 그 정상 사용까지 전부 경고가 된다.
-            //
-            // 허용 범위를 "나가는 엣지"(route[0]→route[1]) 길이로 잡았더니 여전히 오탐이 났다
-            // (2026-08-30 실측: 한 판에 47건). 재계산 시점의 액터는 route[0] 을 <b>다음 목표</b>로
-            // 삼고 <b>들어오는 엣지</b> 위에 서 있기 때문이다 — 나가는 엣지 길이와는 상관이 없다.
-            // 그래서 route[0] 에 붙은 엣지 중 가장 긴 것을 상한으로 쓴다. 액터가 정상적으로 있을 수
-            // 있는 최대 거리가 그것이다. 그보다 멀면 경로가 엉뚱한 곳에서 시작한 것이니 진짜 버그다.
-            const float snapEpsilon = 0.05f;
-            float tolerance = snapEpsilon;
-            var incident = _route[0].Edges;
-            for (int i = 0; i < incident.Count; i++)
-                if (incident[i].Cost > tolerance) tolerance = incident[i].Cost;
-            if (_route.Count > 1)
-                tolerance = Mathf.Max(tolerance,
-                                      Vector3.Distance(_route[0].WorldPosition, _route[1].WorldPosition));
-            if (Vector3.SqrMagnitude(_route[0].WorldPosition - startPosition) > tolerance * tolerance)
-                Debug.LogWarning($"[PathFollower] route[0]({_route[0]}) 이 startPosition({startPosition}) 에서 " +
-                                 $"첫 엣지 길이({tolerance:F1})보다 멀다. 호출자 경로를 점검하라.");
-
             _position = startPosition;
-            _nextIndex = _route.Count > 1 ? 1 : 0;
+            _nextIndex = 0;
+            // 왜: 첫 노드가 아직 앞에 있는 코너라면 반드시 먼저 도착해야 한다.
+            // 이미 첫 엣지 위에 있을 때만 route[0]을 생략한다 (재계산 시 역주행 방지).
+            const float epsilonSquared = 1e-8f;
+            if (_route.Count > 1)
+            {
+                Vector3 edge = _route[1].WorldPosition - _route[0].WorldPosition;
+                Vector3 offset = startPosition - _route[0].WorldPosition;
+                float lengthSquared = edge.sqrMagnitude;
+                float t = lengthSquared > epsilonSquared
+                    ? Vector3.Dot(offset, edge) / lengthSquared : 0f;
+                if (offset.sqrMagnitude <= epsilonSquared ||
+                    (lengthSquared > epsilonSquared && t >= 0f && t <= 1f &&
+                     (offset - edge * t).sqrMagnitude <= epsilonSquared))
+                    _nextIndex = 1;
+            }
             _finished = false;
             RecalculateLength();
         }

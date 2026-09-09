@@ -258,7 +258,7 @@ namespace PMF.Actors
         {
             if (!_def.MotherFollowsPath) return;
 
-            var from = _follower.HasRoute ? _follower.CurrentNode
+            var from = _follower.HasRoute ? (_follower.NextNode ?? _follower.CurrentNode)
                                           : _graph.FindNearestNode(transform.position, PathAgent.Enemy);
             var goal = _graph.FindNearestNode(_escortee.transform.position, PathAgent.Enemy);
             if (from == null || goal == null) return;
@@ -377,7 +377,7 @@ namespace PMF.Actors
             var go = Instantiate(definition.Prefab, transform.position, Quaternion.identity);
             if (_enemiesParent != null) go.transform.SetParent(_enemiesParent, true);
 
-            var startNode = _graph.FindNearestNode(transform.position, PathAgent.Enemy);
+            var startNode = _follower.NextNode ?? _follower.CurrentNode ?? _graph.FindNearestNode(transform.position, PathAgent.Enemy);
             var enemy = go.GetComponent<Enemy>();
             if (enemy != null) enemy.InitializeFromMother(startNode, definition, HealthMultiplier());
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

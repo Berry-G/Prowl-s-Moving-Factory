@@ -15,10 +15,6 @@ namespace PMF.Actors
     {
         private enum State { Moving, Attacking }
 
-        /// <summary>이 거리 안에서만 경로를 벗어나 보호대상 실제 위치로 직접 붙는다.
-        /// 더 멀면 직선으로 가로질러 길 밖으로 새므로 경로 재계산에 맡긴다.</summary>
-        private const float FinalApproachRange = 2.5f;
-
         /// <summary>보호대상 뒤에 유지할 최소 간격 = 공격 사거리 × 이 비율.
         /// 1 보다 작아야 붙어 있는 동안 계속 사거리 안이다.</summary>
         private const float StandoffRatio = 0.8f;
@@ -213,54 +209,28 @@ namespace PMF.Actors
         private void Chase()
         {
             float step = _def.MoveSpeed * Time.deltaTime;
-
-            // 보호대상을 <b>지나쳐 가지 않는다.</b> 뒤에 붙어서 따라간다.
-            //
-            // 경로 목표는 보호대상이 향하는 노드다(그래야 도로를 따라 올바른 방향으로 간다).
-            // 그런데 그대로 두면 보호대상을 통과해 그 노드까지 달려가 버린다.
-            // 그래서 이번 프레임 이동량을 "보호대상까지 거리 - 최소 간격" 으로 잘라 둔다.
-            // 최소 간격은 사거리보다 짧으므로 붙어 있는 동안 계속 사거리 안이다.
             float gap = Vector3.Distance(transform.position, _escortee.transform.position);
             float standoff = _def.AttackRange * StandoffRatio;
             step = Mathf.Min(step, Mathf.Max(0f, gap - standoff));
-            if (step <= 0f) return;   // 이미 따라붙었다 — 더 다가가지 않는다
+            if (step <= 0f) return;
 
             if (_follower.HasRoute && !_follower.IsFinished)
             {
-                if (_follower.Advance(step))
-                {
-                    // 자신이 노드를 통과 → 경로 재계산 트리거 3번
-                    transform.position = _follower.Position;
-                    RecalculateRoute();
-                }
-                else
-                {
-                    transform.position = _follower.Position;
-                }
+                bool passedNode = _follower.Advance(step);
+                transform.position = _follower.Position;
+                if (passedNode) RecalculateRoute();
                 return;
             }
 
-            // 경로 끝 — 마지막 구간만 실제 위치로 직접 붙는다.
-            Vector3 to = _escortee.transform.position - transform.position;
-            float distSqr = to.sqrMagnitude;
-
-            // 멀리 떨어져 있으면 직선으로 가로지르지 않는다 — 길 밖으로 새는 것을 막는다.
-            if (distSqr > FinalApproachRange * FinalApproachRange)
-            {
-                RecalculateRoute();
-                return;
-            }
-
-            if (distSqr > step * step) transform.position += to.normalized * step;
-
-            // 사거리 안이면 새로 계산할 경로가 없다 — 매 프레임 Dijkstra 를 막는다.
-            if (distSqr > _def.AttackRange * _def.AttackRange) RecalculateRoute();
+            // 왜: 가까워도 직선 접근은 코너·지름길 사이의 배치 타일을 침범한다.
+            // 새 목표로 갈 때도 Enemy 권한의 도로 그래프만 이용한다.
+            RecalculateRoute();
         }
 
         /// <summary>목적지 = 보호대상의 현재 노드.</summary>
         private void RecalculateRoute()
         {
-            var from = _follower.HasRoute ? _follower.CurrentNode : _spawnNode;
+            var from = _follower.NextNode ?? _follower.CurrentNode ?? _spawnNode;
             if (from == null)
                 from = _graph.FindNearestNode(transform.position, PathAgent.Enemy);
 

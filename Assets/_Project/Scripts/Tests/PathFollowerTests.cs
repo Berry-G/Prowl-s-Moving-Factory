@@ -139,6 +139,53 @@ namespace PMF.Tests
         }
 
         [Test]
+        public void RepathBeforeCorner_VisitsCornerBeforeTurning()
+        {
+            var corner = MakeNode(1, 9, 16);
+            var end = MakeNode(2, 9, 8);
+            var follower = new PathFollower();
+            follower.SetRoute(new[] { corner, end }, new Vector3(7, 16, 0));
+            Assert.AreSame(corner, follower.NextNode);
+            Assert.AreEqual(10f, follower.RemainingDistance, 0.001f);
+            follower.Advance(1f);
+            Assert.AreEqual(new Vector3(8, 16, 0), follower.Position);
+            follower.Advance(2f);
+            Assert.AreEqual(new Vector3(9, 15, 0), follower.Position);
+        }
+
+        [Test]
+        public void RepathOnFirstEdge_DoesNotWalkBackwards()
+        {
+            var a = MakeNode(0, 0, 0);
+            var b = MakeNode(1, 4, 0);
+            var c = MakeNode(2, 4, 4);
+            var follower = new PathFollower();
+            follower.SetRoute(new[] { a, b, c }, new Vector3(3, 0, 0));
+            follower.Advance(2f);
+            Assert.AreEqual(new Vector3(4, 1, 0), follower.Position);
+        }
+
+        [Test]
+        public void RepeatedRepath_StaysOnDoglegRoad()
+        {
+            var corner = MakeNode(1, 9, 16);
+            var end = MakeNode(2, 9, 8);
+            var follower = new PathFollower();
+            follower.SetRoute(new[] { corner, end }, new Vector3(1, 16, 0));
+            for (int i = 0; i < 64; i++)
+            {
+                var next = follower.NextNode;
+                if (next == corner) follower.SetRoute(new[] { corner, end }, follower.Position);
+                else if (next == end) follower.SetRoute(new[] { end }, follower.Position);
+                follower.Advance(0.25f);
+                var p = follower.Position;
+                Assert.IsTrue(Mathf.Abs(p.y - 16) < 0.0001f || Mathf.Abs(p.x - 9) < 0.0001f,
+                    "도로를 벗어난 위치: " + p);
+            }
+            Assert.AreEqual(end.WorldPosition, follower.Position);
+        }
+
+        [Test]
         public void Progress_TracksTravel()
         {
             var follower = new PathFollower();
