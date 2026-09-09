@@ -13,87 +13,76 @@ MonoBehaviour:
   m_Name: Stage_Greybox.path
   m_EditorClassIdentifier: PMF.Runtime::PMF.Data.PathDefinition
   _nodes:
-  - Id: N00_start
+  - Id: N00
     Role: start
     X: 1
-    Y: 9
+    Y: 16
   - Id: N01
-    Role: waypoint
-    X: 5
-    Y: 9
+    Role: exit
+    X: 30
+    Y: 1
   - Id: N02
     Role: waypoint
-    X: 8
-    Y: 9
-  - Id: N03
-    Role: waypoint
-    X: 8
-    Y: 4
+    X: 9
+    Y: 16
   - Id: N04
     Role: waypoint
-    X: 11
-    Y: 4
+    X: 9
+    Y: 8
   - Id: N05
     Role: waypoint
-    X: 15
-    Y: 4
+    X: 5
+    Y: 8
   - Id: N06
     Role: waypoint
-    X: 16
-    Y: 4
+    X: 5
+    Y: 3
   - Id: N07
     Role: waypoint
-    X: 16
-    Y: 13
+    X: 14
+    Y: 3
   - Id: N08
     Role: waypoint
-    X: 18
-    Y: 13
+    X: 14
+    Y: 15
   - Id: N09
     Role: waypoint
-    X: 21
-    Y: 13
+    X: 19
+    Y: 15
   - Id: N10
     Role: waypoint
-    X: 24
-    Y: 13
+    X: 19
+    Y: 3
   - Id: N11
     Role: waypoint
     X: 24
-    Y: 6
+    Y: 3
   - Id: N12
     Role: waypoint
-    X: 27
-    Y: 6
-  - Id: N13_exit
-    Role: exit
-    X: 30
-    Y: 6
-  - Id: B01_branch
-    Role: branch
-    X: 12
-    Y: 8
-  - Id: B02_branch
-    Role: branch
-    X: 20
-    Y: 10
+    X: 24
+    Y: 15
+  - Id: N13
+    Role: waypoint
+    X: 29
+    Y: 15
+  - Id: N14
+    Role: waypoint
+    X: 29
+    Y: 3
+  - Id: N15
+    Role: waypoint
+    X: 29
+    Y: 1
+  - Id: N16
+    Role: waypoint
+    X: 19
+    Y: 5
+  - Id: N17
+    Role: waypoint
+    X: 14
+    Y: 5
   _edges:
-  - From: N00_start
-    To: N01
-    Allowed: All
-    Bidirectional: 1
-    Shortcut: 0
-  - From: N01
-    To: N02
-    Allowed: All
-    Bidirectional: 1
-    Shortcut: 0
   - From: N02
-    To: N03
-    Allowed: All
-    Bidirectional: 1
-    Shortcut: 0
-  - From: N03
     To: N04
     Allowed: All
     Bidirectional: 1
@@ -113,23 +102,23 @@ MonoBehaviour:
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
-  - From: N07
-    To: N08
+  - From: N14
+    To: N15
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
-  - From: N08
-    To: N09
+  - From: N15
+    To: N01
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
-  - From: N09
-    To: N10
+  - From: N14
+    To: N13
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
-  - From: N10
-    To: N11
+  - From: N13
+    To: N12
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
@@ -138,33 +127,43 @@ MonoBehaviour:
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
-  - From: N12
-    To: N13_exit
-    Allowed: All
-    Bidirectional: 1
-    Shortcut: 0
-  - From: B01_branch
-    To: N04
-    Allowed: All
-    Bidirectional: 1
-    Shortcut: 0
-  - From: B01_branch
-    To: N05
-    Allowed: All
-    Bidirectional: 1
-    Shortcut: 0
-  - From: B02_branch
+  - From: N09
     To: N08
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
-  - From: B02_branch
-    To: N09
+  - From: N10
+    To: N11
     Allowed: All
     Bidirectional: 1
     Shortcut: 0
-  - From: N05
+  - From: N07
+    To: N17
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N17
     To: N08
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N09
+    To: N16
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N16
+    To: N10
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N02
+    To: N00
+    Allowed: All
+    Bidirectional: 1
+    Shortcut: 0
+  - From: N11
+    To: N14
     Allowed: Escortee
     Bidirectional: 0
     Shortcut: 1

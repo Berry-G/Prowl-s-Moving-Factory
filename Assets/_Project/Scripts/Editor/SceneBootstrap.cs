@@ -19,9 +19,12 @@ namespace PMF.EditorTools
         [MenuItem("PMF/Create Greybox Scene")]
         public static void CreateGreyboxScene()
         {
-            var factory = GreyboxFactory.BuildAll();
+
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+
+            // 왜: NewScene이 참조 없는 SO를 해제할 수 있으므로 새 씬을 연 뒤 로드한다.
+            var factory = GreyboxFactory.BuildAll();
 
             // 기본 씬에 들어오는 라이트는 2D 그레이박스에 불필요.
             foreach (var light in Object.FindObjectsByType<Light>())
@@ -69,6 +72,8 @@ namespace PMF.EditorTools
             SetOrder<PathGraph>(-190);
             SetOrder<Session.GameClock>(-180);
             SetOrder<Session.GameSession>(-170);
+            // 왜: MotherSpawner.Start보다 보호대상의 세션 등록을 먼저 실행한다.
+            SetOrder<PMF.Actors.Escortee>(-160);
         }
 
         private static void SetOrder<T>(int order) where T : MonoBehaviour

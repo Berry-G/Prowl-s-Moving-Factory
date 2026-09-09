@@ -92,6 +92,13 @@ namespace PMF.EditorTools
                              blocked.GetComponent<Tilemap>());
 
             DrawExitMarker(mapRoot.transform);
+            // 왜: 임포트한 경로의 탈출 위치에 표시를 맞춘다.
+            if (factory.Path != null)
+            {
+                var exit = System.Array.Find(factory.Path.Nodes, n => n.Role == "exit");
+                if (exit.Role == "exit")
+                    mapRoot.transform.Find("ExitPoint").position = CellCenterWorld(new Vector2Int(exit.X, exit.Y));
+            }
         }
 
         /// <summary>CellType(게임 enum) → GreyboxMapData.Category(저작). 숫자 캐스팅 금지.</summary>
@@ -248,6 +255,8 @@ namespace PMF.EditorTools
                 return;
             }
 
+            // [임시 진단 2026-09-06] 씬 노드가 16개(폴백 값)로 나오는 원인을 가른다. 확인 후 지운다.
+            Debug.Log($"[BPN] factory.Path={(factory.Path == null ? "null" : factory.Path.Nodes.Length + "노드")}");
             if (factory.Path != null)
             {
                 // PathDefinition 으로부터 노드·엣지 생성

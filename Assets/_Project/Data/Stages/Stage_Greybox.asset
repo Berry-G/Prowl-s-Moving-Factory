@@ -49,9 +49,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   _motherFollowsPath: 1
-  _burstTriggerNodeIds:
-  - N06
-  - N10
+  _burstTriggerNodeIds: []
   _burstDuration: 10
   _burstVolleyCount: 6
   _burstRestSeconds: 2.5
