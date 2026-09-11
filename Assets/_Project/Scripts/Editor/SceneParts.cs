@@ -89,7 +89,7 @@ namespace PMF.EditorTools
                              buildable.GetComponent<Tilemap>(),
                              villageSlot.GetComponent<Tilemap>(),
                              water.GetComponent<Tilemap>(),
-                             blocked.GetComponent<Tilemap>());
+                             blocked.GetComponent<Tilemap>(), factory.Map);
 
             DrawExitMarker(mapRoot.transform);
             // 왜: 임포트한 경로의 탈출 위치에 표시를 맞춘다.
@@ -147,6 +147,15 @@ namespace PMF.EditorTools
             clockGo.transform.SetParent(_servicesRoot);
             clockGo.AddComponent<GameClock>();
 
+            // 왜: 사용자 채널 설정을 받을 실제 오디오 소스를 씬 재구축에도 보존한다.
+            AddSimple<PMF.Audio.SfxPlayer>("SfxPlayer");
+            var music = new GameObject("BGM");
+            music.transform.SetParent(_servicesRoot);
+            var musicSource = music.AddComponent<AudioSource>();
+            musicSource.loop = true;
+            musicSource.playOnAwake = true;
+            music.AddComponent<PMF.Audio.AudioChannelSource>();
+
             // GameSession (+ Wallet 자식)
             var sessionGo = new GameObject("GameSession");
             sessionGo.transform.SetParent(_servicesRoot);
@@ -193,16 +202,16 @@ namespace PMF.EditorTools
         }
 
         internal static void CreateGridSystem(Tilemap ground, Tilemap road, Tilemap buildable,
-                                              Tilemap villageSlot, Tilemap water, Tilemap blocked)
+                                              Tilemap villageSlot, Tilemap water, Tilemap blocked, PMF.Data.MapDefinition map = null)
         {
             var gridSystemGo = new GameObject("GridSystem");
             gridSystemGo.transform.SetParent(_servicesRoot);
             var gridSystem = gridSystemGo.AddComponent<GridSystem>();
 
             var so = new SerializedObject(gridSystem);
-            so.FindProperty("_width").intValue = GreyboxMapData.Width;
-            so.FindProperty("_height").intValue = GreyboxMapData.Height;
-            so.FindProperty("_origin").vector3Value = GreyboxMapData.Origin;
+            so.FindProperty("_width").intValue = map != null ? map.Width : GreyboxMapData.Width;
+            so.FindProperty("_height").intValue = map != null ? map.Height : GreyboxMapData.Height;
+            so.FindProperty("_origin").vector3Value = map != null ? new Vector3(map.Origin.x,map.Origin.y,0f) : GreyboxMapData.Origin;
             so.FindProperty("_cellSize").floatValue = 1f;
             so.FindProperty("_ground").objectReferenceValue = ground;
             so.FindProperty("_road").objectReferenceValue = road;
@@ -228,20 +237,21 @@ namespace PMF.EditorTools
             line.startColor = line.endColor = new Color(1f, 0.84f, 0f);
             line.startWidth = line.endWidth = 0.08f;
             line.loop = true;
+            line.useWorldSpace = false;
             line.positionCount = 4;
-            line.SetPosition(0, world + new Vector3(-half, -half));
-            line.SetPosition(1, world + new Vector3(half, -half));
-            line.SetPosition(2, world + new Vector3(half, half));
-            line.SetPosition(3, world + new Vector3(-half, half));
+            line.SetPosition(0, new Vector3(-half, -half));
+            line.SetPosition(1, new Vector3(half, -half));
+            line.SetPosition(2, new Vector3(half, half));
+            line.SetPosition(3, new Vector3(-half, half));
             line.sortingLayerName = "Deploy";
         }
 
         internal static Vector3 CellCenterWorld(Vector2Int cell)
         {
-            return new Vector3(
-                GreyboxMapData.Origin.x + cell.x + 0.5f,
-                GreyboxMapData.Origin.y + cell.y + 0.5f,
-                0f);
+            // 왜: 임포트한 맵 origin/크기를 쓰며 좌표 변환은 GridSystem 한 곳에 유지한다.
+            var grid = Object.FindAnyObjectByType<GridSystem>();
+            if (grid == null) throw new System.InvalidOperationException("GridSystem을 먼저 생성해야 한다.");
+            return grid.CellToWorld(new GridCoord(cell.x, cell.y));
         }
 
         // ---------- 경로 노드 ----------

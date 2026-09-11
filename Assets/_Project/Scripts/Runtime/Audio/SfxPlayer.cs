@@ -30,6 +30,18 @@ namespace PMF.Audio
         private readonly List<float>[] _activeEnds = new List<float>[8];
         private bool _muted;
 
+        private float _sfxVolume = 1f;
+        private readonly Dictionary<AudioSource,float> _voiceVolumes = new Dictionary<AudioSource,float>();
+        private void OnEnable() { PMF.Session.UserSettings.Changed += ApplyUserSettings; ApplyUserSettings(); }
+        private void OnDisable() => PMF.Session.UserSettings.Changed -= ApplyUserSettings;
+        private void ApplyUserSettings()
+        {
+            var settings = PMF.Session.UserSettings.Current;
+            _muted = settings.Muted; _sfxVolume = settings.Sfx;
+            foreach (var pair in _voiceVolumes)
+                if (pair.Key != null) pair.Key.volume = pair.Value * _sfxVolume;
+        }
+
         private void Awake()
         {
             for (int i = 0; i < _activeEnds.Length; i++)
@@ -67,13 +79,9 @@ namespace PMF.Audio
 
         private void Update()
         {
-            // 음소거 단축키 (G-11) — 설정 메뉴(G-12) 볼륨 UI 와 연결될 자리.
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.mKey.wasPressedThisFrame)
-            {
-                _muted = !_muted;
-                Debug.Log($"[Sfx] 음소거: {_muted}");
-            }
+            if (keyboard != null && keyboard.mKey.wasPressedThisFrame && !PMF.UI.PauseMenu.IsOpen)
+                ToggleMute();
         }
 
         /// <summary>마스터 볼륨 (StageDefinition 전역 볼륨 × 개별 volume). G-12 설정 메뉴가 쓴다.</summary>
@@ -89,8 +97,7 @@ namespace PMF.Audio
 
         public void SetMuted(bool muted)
         {
-            _muted = muted;
-            Debug.Log($"[Sfx] 음소거: {_muted}");
+            PMF.Session.UserSettings.Change(settings => settings.Muted = muted);
         }
 
         public void Play(SfxId id)
@@ -116,7 +123,8 @@ namespace PMF.Audio
             var source = FindFreeSource();
             if (source == null) return;
 
-            source.volume = def.Volume * _masterVolume;
+            _voiceVolumes[source] = def.Volume * _masterVolume;
+            source.volume = _voiceVolumes[source] * _sfxVolume;
             source.PlayOneShot(def.Clip);
             _lastPlayedReal[index] = now;
             _activeEnds[index].Add(now + def.Clip.length);

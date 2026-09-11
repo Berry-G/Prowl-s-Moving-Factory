@@ -68,53 +68,7 @@ namespace PMF.UI
             quit.GetComponent<Button>().onClick.AddListener(OnQuit);
         }
 
-        private void BuildSettingsPanel()
-        {
-            _settingsPanel = new GameObject("SettingsPanel", typeof(RectTransform), typeof(Image));
-            _settingsPanel.transform.SetParent(transform, false);
-            Rect(_settingsPanel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(340f, 470f));
-            _settingsPanel.GetComponent<Image>().color = new Color(0.12f, 0.13f, 0.16f, 0.98f);
-            _settingsPanel.SetActive(false);
-
-            MakeText(_settingsPanel.transform, "Title", "설정", 30, TextAnchor.MiddleCenter,
-                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -44f), new Vector2(300f, 44f));
-
-            MakeText(_settingsPanel.transform, "VolumeLabel", "효과음 볼륨", 20, TextAnchor.MiddleLeft,
-                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(280f, 30f));
-
-            var slider = MakeSlider(_settingsPanel.transform, "VolumeSlider",
-                                    new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(260f, 24f));
-            if (_sfx != null) slider.value = _sfx.MasterVolume;
-            slider.onValueChanged.AddListener(v =>
-            {
-                if (_sfx != null) _sfx.SetMasterVolume(v);
-            });
-
-            // MakeText 는 Button 이 없는 순수 라벨을 만든다. 토글은 버튼이어야 하므로 MakeButton 을 쓰고
-            // 그 자식 Label 의 Text 를 잡아 둔다.
-            var muteBtn = MakeButton(_settingsPanel.transform, "Btn_Mute", MuteText(), TextAnchor.MiddleCenter,
-                                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -176f), new Vector2(260f, 36f));
-            _muteLabel = muteBtn.GetComponentInChildren<Text>();
-            muteBtn.GetComponent<Button>().onClick.AddListener(() =>
-            {
-                if (_sfx != null) _sfx.ToggleMute();
-                _muteLabel.text = MuteText();
-            });
-
-            BuildDifficultyRow();
-
-            var restart = MakeButton(_settingsPanel.transform, "Btn_Restart", "다시 시작", TextAnchor.MiddleCenter,
-                                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -350f), new Vector2(260f, 44f));
-            restart.GetComponent<Button>().onClick.AddListener(OnRestart);
-
-            var close = MakeButton(_settingsPanel.transform, "Btn_CloseSettings", "닫기", TextAnchor.MiddleCenter,
-                                   new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -406f), new Vector2(260f, 36f));
-            close.GetComponent<Button>().onClick.AddListener(() =>
-            {
-                _settingsPanel.SetActive(false);
-                _panel.SetActive(true);
-            });
-        }
+        private void BuildSettingsPanel() => BuildTabbedSettings();
 
         /// <summary>난이도 3버튼 (G-23).
         ///
@@ -261,7 +215,6 @@ namespace PMF.UI
             if (_difficultyConfirm != null) _difficultyConfirm.SetActive(false);
         }
 
-        private string MuteText() => _sfx != null && _sfx.IsMuted ? "음소거: 켜짐" : "음소거: 꺼짐";
 
         private static void Rect(GameObject go, Vector2 anchor, Vector2 anchorMax, Vector2 pos, Vector2 size)
         {

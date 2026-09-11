@@ -59,6 +59,7 @@ namespace PMF.EditorTools
             var camera = Object.FindAnyObjectByType<Camera>();
             if (camera == null) return;
             camera.orthographic = true;
+            if (camera.GetComponent<PMF.Session.StageCameraController>() == null) camera.gameObject.AddComponent<PMF.Session.StageCameraController>();
             camera.transform.position = new Vector3(0f, 0f, -10f);
             camera.orthographicSize = 9.5f;
             camera.clearFlags = CameraClearFlags.SolidColor;

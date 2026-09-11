@@ -19,12 +19,10 @@ namespace PMF.UI
         private static void ResetStatics() => IsOpen = false;
 
         private DeploymentController _deployment;
-        private Audio.SfxPlayer _sfx;
         private GameObject _pauseButton;
         private GameObject _blocker;
         private GameObject _panel;
         private GameObject _settingsPanel;
-        private Text _muteLabel;
         private Font _font;
 
         // 난이도 (G-23). 언제든 고를 수 있지만, 고르면 지금 판이 그 난이도로 다시 시작된다.
@@ -43,7 +41,6 @@ namespace PMF.UI
         {
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _deployment = FindAnyObjectByType<DeploymentController>();
-            _sfx = FindAnyObjectByType<Audio.SfxPlayer>();
 
             _pauseButton = FindOrCreatePauseButton();
             BuildBlocker();
